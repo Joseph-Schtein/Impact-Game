@@ -25,9 +25,11 @@ function getString(key) {
     return dict[key]?.[state.currentLang.code] || dict[key]?.["en"] || key;
 }
 
+const SHOW_LANG_SELECTOR = false; // Flag to enable/disable language selection
+
 // --- APP STATE ---
 const state = {
-    currentLang: Lang.EN,
+    currentLang: Lang.HE,
     currentScreen: 'SPLASH',
     selectedMode: 'CLASSIC',
     activeCategory: '',
@@ -45,26 +47,48 @@ const state = {
     userBetInput: ''
 };
 
-const categoryList = ["Anime", "Pop Culture", "Terms"];
+const categoryList = ["אנימה", "תרבות פופ", "מושגים"];
 const appContainer = document.getElementById('app-container');
 
-// --- MOCK DATABASE (Replace with Firebase Firestore Web SDK later) ---
-function initDB() {
-    // Placeholder data to allow UI testing
-    state.questionBank = [
-        {
-            category: "Anime",
-            textMap: { en: "What is the highest grossing anime film?", he: "מהו סרט האנימה המכניס ביותר?" },
-            optionsMap: { en: ["Your Name", "Demon Slayer", "Spirited Away", "Akira"] },
-            correctMap: { en: "Demon Slayer" }
-        }
-    ];
+// --- TOAST NOTIFICATION ---
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    // Trigger animation
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('show'));
+    });
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
 }
 
-// --- TRANSLATOR MOCK (Replace with Google Cloud Translate API for Web) ---
-async function translateText(text, sourceLang) {
-    console.log("Translation API call would happen here for:", text);
-    return { en: text, he: text + " (he)", ar: text + " (ar)", ru: text + " (ru)" };
+// --- GOOGLE TRANSLATE (free public endpoint, no API key required) ---
+async function translateToLang(text, targetLang, sourceLang) {
+    if (!text) return '';
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url);
+        const json = await res.json();
+        return json[0].map(s => s[0]).join('');
+    } catch (e) {
+        console.warn(`Translation failed (${targetLang}):`, e);
+        return text; // fallback: original text
+    }
+}
+
+async function translateToAllLangs(text, sourceLang) {
+    const targets = ['en', 'he', 'ar', 'ru'].filter(l => l !== sourceLang);
+    const results = { [sourceLang]: text };
+    await Promise.all(targets.map(async lang => {
+        results[lang] = await translateToLang(text, lang, sourceLang);
+    }));
+    return results;
 }
 
 // --- RENDER ENGINE ---
@@ -89,8 +113,8 @@ function render() {
 // --- SCREEN COMPONENTS ---
 function renderSplash() {
     setTimeout(() => { state.currentScreen = 'MENU'; render(); }, 2000);
-    return `<div style="display:flex;height:100%;align-items:center;justify-content:center;">
-                <h1 style="font-size:42px;color:var(--deep-indigo)">Otaku Trivia</h1>
+    return `<div class="screen-wrapper" style="align-items:center; justify-content:center;">
+                <h1 style="font-size:42px; color:var(--app-text)">אוטאקו טריוויה</h1>
             </div>`;
 }
 
@@ -101,23 +125,27 @@ function renderMenu() {
     ).join(' | ');
 
     return `
-        <div class="text-center" style="margin-top:auto; margin-bottom:auto;">
-            <div style="margin-bottom:40px;">${langs}</div>
-            <h1 style="font-size:32px;">${getString('menu_title')}</h1>
-            <button class="neo-button bg-coral" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('play_btn')}</button>
-            <button class="neo-button bg-teal" style="height:60px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
+        <div class="screen-wrapper">
+            ${SHOW_LANG_SELECTOR ? `<div style="margin-bottom:40px; text-align: center;">${langs}</div>` : ''}
+            <h1 class="main-title">${getString('menu_title')}</h1>
+            <div class="button-group">
+                <button class="neo-button bg-coral" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('play_btn')}</button>
+                <button class="neo-button bg-teal" style="height:60px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
+            </div>
         </div>`;
 }
 
 function renderModeSelect() {
     return `
-        <div class="text-center" style="margin-top:auto; margin-bottom:auto;">
-            <h2>${getString('mode_title')}</h2>
-            <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('CLASSIC')">🏆 ${getString('mode_classic')}</button>
-            <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLIMB')">⛰️ ${getString('mode_climb')}</button>
-            <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('BET_BURN')">🔥 ${getString('mode_bet')}</button>
-            <div class="spacer-lg"></div>
-            <button class="neo-button bg-coral" onclick="navigate('MENU')">${getString('back')}</button>
+        <div class="screen-wrapper">
+            <h2 class="main-title">${getString('mode_title')}</h2>
+            <div class="button-group">
+                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('CLASSIC')"> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLIMB')"> ${getString('mode_climb')}</button>
+                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('BET_BURN')"> ${getString('mode_bet')}</button>
+                <div class="spacer-lg"></div>
+                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
+            </div>
         </div>`;
 }
 
@@ -127,11 +155,13 @@ function renderSubjects() {
         `<button class="neo-button ${colourCycle[i % colourCycle.length]}" onclick="startPlay('${c}')">${c}</button>`
     ).join('');
     return `
-        <div class="text-center" style="margin-top:auto; margin-bottom:auto;">
-            <h2>${getString('sub_title')}</h2>
-            ${cats}
-            <div class="spacer-lg"></div>
-            <button class="neo-button bg-coral" onclick="navigate('MODE_SELECT')">${getString('back')}</button>
+        <div class="screen-wrapper">
+            <h2 class="main-title">${getString('sub_title')}</h2>
+            <div class="button-group">
+                ${cats}
+                <div class="spacer-lg"></div>
+                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MODE_SELECT')">${getString('back')}</button>
+            </div>
         </div>`;
 }
 
@@ -145,12 +175,12 @@ function renderClassic() {
     const progress = (state.currentIndex / state.currentPlayList.length) * 100;
 
     return `
-        <div style="display:flex; flex-direction:column; height:100%;">
-            <span style="cursor:pointer; font-weight:bold;" onclick="navigate('MENU')">${getString('back')}</span>
+        <div class="screen-wrapper">
+            <button class="neo-button bg-Back" style="width:auto; padding:8px 20px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
             <div class="spacer-md"></div>
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
-            <p class="text-center bold color-coral">Question ${state.currentIndex + 1} / ${state.currentPlayList.length}</p>
+            <p class="text-center bold color-indigo">שאלה ${state.currentIndex + 1} מתוך ${state.currentPlayList.length}</p>
             <div class="spacer-md"></div>
             <h2 style="font-size: 20px;">${qText}</h2>
             <div class="spacer-lg"></div>
@@ -200,10 +230,10 @@ function renderBetBurn() {
     }
 
     return `
-        <div style="display:flex; flex-direction:column; height:100%;">
+        <div class="screen-wrapper">
             <div style="display:flex; justify-content:space-between;">
-                <span style="cursor:pointer; font-weight:bold;" onclick="navigate('MENU')">${getString('back')}</span>
-                <span class="bold">Q: ${state.currentIndex + 1} / ${state.currentPlayList.length}</span>
+                <button class="neo-button bg-Back" style="width:auto; padding:8px 20px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
+                <span class="bold color-indigo">שאלה ${state.currentIndex + 1} מתוך ${state.currentPlayList.length}</span>
             </div>
             <div class="spacer-md"></div>
             <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
@@ -245,29 +275,33 @@ function renderAddQuestion() {
     ).join('');
 
     return `
-        <div style="display:flex; flex-direction:column; height:100%; overflow-y:auto; padding-bottom: 20px;">
-            <h2 class="color-indigo">Add New Question</h2>
+        <div class="screen-wrapper" style="align-items: center; padding-bottom: 40px;">
+            <h2 class="main-title" style="margin-top: 0;">הוסף שאלה חדשה</h2>
             
-            <label class="bold">Question Text</label>
-            <input type="text" id="newQText" class="neo-input" placeholder="e.g., Who is the author of One Piece?">
-            
-            <label class="bold">Options (4)</label>
-            <input type="text" id="newQOpt1" class="neo-input" placeholder="Option 1">
-            <input type="text" id="newQOpt2" class="neo-input" placeholder="Option 2">
-            <input type="text" id="newQOpt3" class="neo-input" placeholder="Option 3">
-            <input type="text" id="newQOpt4" class="neo-input" placeholder="Option 4">
-            
-            <label class="bold">Correct Answer</label>
-            <input type="text" id="newQCorrect" class="neo-input" placeholder="Must match one of the options exactly">
+            <div style="width: 100%; max-width: 400px; text-align: right;">
+                <label class="bold">טקסט השאלה</label>
+                <input type="text" id="newQText" class="neo-input" placeholder="לדוגמא, מי היוצר של וואן פיס?">
+                
+                <label class="bold">אפשרויות (4)</label>
+                <input type="text" id="newQOpt1" class="neo-input" placeholder="אפשרות 1" oninput="updateCorrectDropdown()">
+                <input type="text" id="newQOpt2" class="neo-input" placeholder="אפשרות 2" oninput="updateCorrectDropdown()">
+                <input type="text" id="newQOpt3" class="neo-input" placeholder="אפשרות 3" oninput="updateCorrectDropdown()">
+                <input type="text" id="newQOpt4" class="neo-input" placeholder="אפשרות 4" oninput="updateCorrectDropdown()">
+                
+                <label class="bold">תשובה נכונה</label>
+                <select id="newQCorrect" class="neo-input" style="height: 58px; font-weight: bold; background-color: var(--white); -webkit-appearance: listbox;">
+                    <option value="">-- בחר את התשובה הנכונה --</option>
+                </select>
+            </div>
             
             <div class="spacer-sm"></div>
-            <div style="display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; flex-direction: row-reverse;">
                 ${cats}
             </div>
             
-            <button class="neo-button bg-teal" id="saveQBtn" onclick="saveNewQuestion()">SAVE QUESTION</button>
+            <button class="neo-button bg-teal" id="saveQBtn" onclick="saveNewQuestion()">שמור שאלה</button>
             <div class="spacer-lg"></div>
-            <button class="neo-button bg-coral" onclick="navigate('MENU')">${getString('back')}</button>
+            <button class="neo-button bg-Back" style="margin-bottom: 40px; max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
         </div>
     `;
 }
@@ -278,56 +312,68 @@ async function saveNewQuestion() {
     const opt2 = document.getElementById('newQOpt2').value.trim();
     const opt3 = document.getElementById('newQOpt3').value.trim();
     const opt4 = document.getElementById('newQOpt4').value.trim();
-    const correct = document.getElementById('newQCorrect').value.trim();
+    const correct = document.getElementById('newQCorrect').value;
     const category = document.querySelector('input[name="newQCategory"]:checked').value;
 
     const opts = [opt1, opt2, opt3, opt4];
 
     // Basic validation
     if (!qText || opts.some(o => !o) || !correct) {
-        alert("Please fill in all fields!");
-        return;
-    }
-
-    if (!opts.includes(correct)) {
-        alert("The Correct Answer must exactly match one of the 4 options.");
+        showToast("נא למלא את כל השדות!", 'error');
         return;
     }
 
     // UI Feedback
     const btn = document.getElementById('saveQBtn');
-    btn.innerText = "SAVING...";
+    btn.innerText = "מתרגם ושומר...";
     btn.disabled = true;
 
-    // Simulate the Kotlin translateTextToAllLanguages function
-    const tQ = await translateText(qText, state.currentLang.code);
-    const tA = await translateText(correct, state.currentLang.code);
+    try {
+        const src = state.currentLang.code;
 
-    // Simulate translating the array of options
-    const tO = {
-        en: opts,
-        he: opts.map(o => o + " (he)"),
-        ar: opts.map(o => o + " (ar)"),
-        ru: opts.map(o => o + " (ru)")
-    };
+        // Translate question text into all 4 languages
+        const tQ = await translateToAllLangs(qText, src);
 
-    const newQuestion = {
-        category: category,
-        textMap: tQ,
-        optionsMap: tO,
-        correctMap: tA
-    };
+        // Translate each option into all 4 languages in parallel
+        const translatedOpts = await Promise.all(opts.map(o => translateToAllLangs(o, src)));
 
-    // Push to local state (Replace this with db.collection("questions").add(newQ) later)
-    state.questionBank.push(newQuestion);
+        // Build optionsMap: { en: [...], he: [...], ar: [...], ru: [...] }
+        const tO = {
+            en: translatedOpts.map(t => t.en),
+            he: translatedOpts.map(t => t.he),
+            ar: translatedOpts.map(t => t.ar),
+            ru: translatedOpts.map(t => t.ru)
+        };
 
-    alert("Question added successfully!");
-    navigate('MENU');
+        // Translate the correct answer into all 4 languages
+        const tA = await translateToAllLangs(correct, src);
+
+        const newQuestion = {
+            category: category,
+            textMap: tQ,
+            optionsMap: tO,
+            correctMap: tA
+        };
+
+        // Save to Firebase Firestore
+        await window.addDoc(window.collection(window.db, "questions"), newQuestion);
+        showToast("✅ השאלה תורגמה ונשמרה בהצלחה!", 'success', 3500);
+        navigate('MENU');
+
+    } catch (error) {
+        console.error("Error saving question:", error);
+        showToast("שגיאה בשמירת השאלה: " + error.message, 'error', 5000);
+        const btn2 = document.getElementById('saveQBtn');
+        if (btn2) { btn2.innerText = "שמור שאלה"; btn2.disabled = false; }
+    }
 }
-
 
 function initDB() {
     // Listen to the "questions" collection in your existing Firestore
+    if (!window.db) {
+        console.error("Firebase is not initialized yet!");
+        return;
+    }
     window.onSnapshot(window.collection(window.db, "questions"), (snapshot) => {
         state.questionBank = [];
         snapshot.forEach((doc) => {
@@ -337,28 +383,10 @@ function initDB() {
 
         // Re-render if we are on a screen that needs the data
         if (state.currentScreen === 'MENU') render();
+    }, (error) => {
+        console.error("Firebase connection error:", error);
+        showToast("שגיאה בהתחברות ל-Firebase: " + error.message, 'error', 6000);
     });
-}
-
-async function saveNewQuestion() {
-    // ... (keep all the form validation and translation code the same) ...
-
-    const newQuestion = {
-        category: category,
-        textMap: tQ,
-        optionsMap: tO,
-        correctMap: tA
-    };
-
-    try {
-        // Send directly to the same Firestore collection your Kotlin app uses
-        await window.addDoc(window.collection(window.db, "questions"), newQuestion);
-        alert("Question added successfully to Firebase!");
-        navigate('MENU');
-    } catch (e) {
-        console.error("Error adding document: ", e);
-        alert("Failed to save. Check console.");
-    }
 }
 
 // --- ACTIONS ---
@@ -374,7 +402,7 @@ window.startPlay = (cat) => {
     if (state.currentPlayList.length > 0) {
         navigate(state.selectedMode === 'BET_BURN' ? 'PLAYING_BET' : state.selectedMode === 'CLIMB' ? 'PLAYING_CLIMB' : 'PLAYING_CLASSIC');
     } else {
-        alert("No questions found for this category! Please add some via DB.");
+        showToast("לא נמצאו שאלות עבור נושא זה. אנא הוסף שאלות חדשות!", 'info', 4000);
     }
 };
 
@@ -430,6 +458,30 @@ window.checkBetAnswer = () => {
     }, 100);
 };
 
+// --- REACTIVE CORRECT ANSWER DROPDOWN ---
+window.updateCorrectDropdown = () => {
+    const opt1 = document.getElementById('newQOpt1')?.value.trim() || '';
+    const opt2 = document.getElementById('newQOpt2')?.value.trim() || '';
+    const opt3 = document.getElementById('newQOpt3')?.value.trim() || '';
+    const opt4 = document.getElementById('newQOpt4')?.value.trim() || '';
+    
+    const select = document.getElementById('newQCorrect');
+    if (!select) return;
+    
+    const prevValue = select.value;
+    
+    select.innerHTML = `
+        <option value="">-- בחר את התשובה הנכונה --</option>
+        ${opt1 ? `<option value="${opt1}">${opt1}</option>` : ''}
+        ${opt2 ? `<option value="${opt2}">${opt2}</option>` : ''}
+        ${opt3 ? `<option value="${opt3}">${opt3}</option>` : ''}
+        ${opt4 ? `<option value="${opt4}">${opt4}</option>` : ''}
+    `;
+    
+    if ([opt1, opt2, opt3, opt4].includes(prevValue)) {
+        select.value = prevValue;
+    }
+};
+
 // Initialize
-//initDB();
-//render();
+// initDB() and render() are called from the Firebase module script in index.html
