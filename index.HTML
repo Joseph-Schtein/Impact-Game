@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otaku Trivia</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="app-container">
+    </div>
+
+    <script src="app.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-analytics.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDqau1zWiT64Tl10vuL55C0kMISktjTLYU",
+            authDomain: "anime-trivia-f8e36.firebaseapp.com",
+            projectId: "anime-trivia-f8e36",
+            storageBucket: "anime-trivia-f8e36.firebasestorage.app",
+            messagingSenderId: "580827563128",
+            appId: "1:580827563128:web:2757303ef5b30beafbd98d",
+            measurementId: "G-22FS3H63C8"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Attach to window so app.js can use them
+        window.db = db;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.onSnapshot = onSnapshot;
+
+        // 3. NOW start the game, because Firebase is completely ready!
+        initDB();
+        render();
+    </script>
+</body>
+
+</html>

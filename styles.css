@@ -1,0 +1,254 @@
+:root {
+    /* Main Structure */
+    --app-bg: #FFD8DE;
+    /* Soft Pink */
+    --app-text: #21026E;
+    /* Dark Indigo - Universal Text & Borders */
+
+    /* The Vibrant Accents */
+    --accent-mint: hsl(157, 65%, 72%);
+    /* brighter mint */
+    /* Replaces old coral/burgundy */
+    --accent-cyan: hsl(187, 74%, 74%);
+    /* brighter cyan */
+    /* Replaces old indigo/violet */
+    --accent-teal: hsl(177, 68%, 55%);
+    /* brighter teal */
+    /* Used for progress bars and highlights */
+
+    --white: #ffffff;
+}
+
+* {
+    box-sizing: border-box;
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--app-bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* STRICT INDIGO TEXT: Forces all text to use the high-contrast Dark Indigo */
+h1,
+h2,
+h3,
+p,
+span,
+div,
+label,
+input {
+    color: var(--app-text);
+}
+
+#app-container {
+    width: 100%;
+    max-width: 600px;
+    height: 100vh;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+/* Typography & Alignment */
+h1,
+h2 {
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 24px;
+    letter-spacing: -0.5px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.bold {
+    font-weight: 700;
+}
+
+/* Keep JS classes working, map them to new accessible palette */
+.color-coral {
+    color: var(--accent-teal);
+}
+
+.color-indigo {
+    color: var(--app-text);
+}
+
+.spacer-sm {
+    height: 16px;
+}
+
+.spacer-md {
+    height: 24px;
+}
+
+.spacer-lg {
+    height: 40px;
+}
+
+/* Persistent Button Styling */
+.neo-button {
+    background-color: transparent;
+    color: var(--app-text);
+    border: 2px solid var(--app-text);
+    border-radius: 20px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.neo-button:hover {
+    background-color: rgba(33, 2, 110, 0.05);
+    /* Subtle Indigo hover */
+}
+
+.neo-button:active,
+.neo-button.toggled {
+    background-color: var(--app-text);
+    color: var(--app-bg);
+    /* Indigo background, Pink text */
+    transform: scale(0.98);
+}
+
+.neo-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background-color: transparent;
+    transform: none;
+}
+
+/* Accent Buttons - Text remains Dark Indigo for WCAG accessibility */
+.neo-button.bg-coral {
+    background-color: var(--accent-mint);
+    border-color: var(--app-text);
+    color: var(--app-text);
+}
+
+.neo-button.bg-indigo {
+    background-color: var(--accent-cyan);
+    border-color: var(--app-text);
+    color: var(--app-text);
+}
+
+.neo-button.bg-teal {
+    background-color: var(--accent-teal);
+    border-color: var(--app-text);
+    color: var(--app-text); /* navy on teal = 6.3:1 ✅ */
+}
+
+/* Progress Bar using Teal */
+.progress-container {
+    width: 100%;
+    height: 12px;
+    background-color: rgba(33, 2, 110, 0.1);
+    border-radius: 50px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--accent-teal);
+    border-radius: 50px;
+    transition: width 0.3s ease;
+}
+
+/* Inputs */
+.neo-input {
+    width: 100%;
+    padding: 16px;
+    border: 2px solid rgba(33, 2, 110, 0.2);
+    border-radius: 16px;
+    font-size: 16px;
+    margin-bottom: 16px;
+    background-color: var(--white);
+    transition: border-color 0.2s ease;
+}
+
+.neo-input:focus {
+    outline: none;
+    border-color: var(--app-text);
+}
+
+.neo-input::placeholder {
+    color: rgba(33, 2, 110, 0.4);
+}
+
+.bet-input {
+    font-size: 32px;
+    font-weight: 800;
+    text-align: center;
+    width: 70%;
+    background-color: transparent;
+    border: none;
+    border-bottom: 3px solid var(--app-text);
+    border-radius: 0;
+}
+
+.bet-input:focus {
+    border-color: var(--accent-teal);
+}
+
+/* Animations */
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    20%,
+    60% {
+        transform: translateX(-10px);
+    }
+
+    40%,
+    80% {
+        transform: translateX(10px);
+    }
+}
+
+.shake {
+    animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+/* Climb Visualizer */
+.climb-visualizer {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    width: 80px;
+    height: 300px;
+    border-right: 2px solid rgba(33, 2, 110, 0.2);
+    margin-right: 16px;
+    position: relative;
+}
+
+.climb-step {
+    width: 70%;
+    height: 6px;
+    background: rgba(33, 2, 110, 0.5);
+    margin-top: auto;
+    border-radius: 4px;
+}
+
+.climber {
+    width: 20px;
+    height: 20px;
+    background: var(--app-text);
+    border-radius: 50%;
+    position: absolute;
+    transition: bottom 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
