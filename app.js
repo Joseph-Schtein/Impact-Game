@@ -40,7 +40,8 @@ const state = {
     currentIndex: 0,
     score: 0,
     energy: 100,
-    rank: 0,
+    rank: 0,           // Climb: current level 0-10
+    climbLastResult: null, // 'up' | 'down' | null
     selectedOption: null,
     isAnimating: false,
     currentPhase: 'BETTING', // For Bet & Burn
@@ -104,6 +105,7 @@ function render() {
         case 'PLAYING_CLASSIC': html = renderClassic(); break;
         case 'PLAYING_BET': html = renderBetBurn(); break;
         case 'PLAYING_CLIMB': html = renderClimb(); break;
+        case 'CLIMB_RESULT': html = renderClimbResult(); break;
         case 'GAME_OVER': html = renderGameOver(); break;
         case 'ADD_QUESTION': html = renderAddQuestion(); break;
     }
@@ -243,22 +245,139 @@ function renderBetBurn() {
 }
 
 function renderClimb() {
-    // Basic structural representation of the climb visualizer for web
-    return `<div class="text-center" style="margin-top:auto; margin-bottom:auto;">
-        <h2>The Climb Mode</h2>
-        <p>HTML/CSS Canvas alternative would render steps here based on state.rank: ${state.rank}/10</p>
-        <button class="neo-button" onclick="navigate('GAME_OVER')">Trigger Win/Loss Simulation</button>
-    </div>`;
+    // Cycle questions if we run out
+    const qIdx = state.currentIndex % state.currentPlayList.length;
+    const q = state.currentPlayList[qIdx];
+    if (!q) { navigate('MENU'); return ''; }
+    const qText = q.textMap[state.currentLang.code] || q.textMap["en"];
+    const opts = q.optionsMap[state.currentLang.code] || q.optionsMap["en"];
+
+    // Build 10-step rank bar
+    const rankDots = Array.from({ length: 10 }, (_, i) => {
+        const filled = i < state.rank;
+        const isNext = i === state.rank;
+        return `<div style="
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 2px solid var(--app-text);
+            background: ${filled ? 'var(--app-text)' : isNext ? 'rgba(33,2,110,0.15)' : 'transparent'};
+            display:flex; align-items:center; justify-content:center;
+            font-size:12px;
+        ">${filled ? '★' : ''}</div>`;
+    }).join('');
+
+    return `
+        <div class="screen-wrapper">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <button class="neo-button bg-Back" style="width:auto; padding:8px 16px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
+                <span class="bold color-indigo" style="font-size:13px;">שאלה ${state.currentIndex + 1}</span>
+            </div>
+            <div class="spacer-sm"></div>
+
+            <!-- Rank bar -->
+            <div style="display:flex; justify-content:center; gap:6px; flex-wrap:wrap; padding: 8px 0;">
+                ${rankDots}
+            </div>
+            <p class="text-center bold color-indigo" style="font-size:13px; margin-bottom:4px;">רמה ${state.rank} / 10</p>
+
+            <div class="spacer-md"></div>
+            <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
+            <div class="spacer-lg"></div>
+
+            ${opts.map(opt => `
+                <button class="neo-button ${state.selectedOption === opt ? 'bg-indigo toggled' : ''}"
+                        onclick="selectOption('${opt.replace(/'/g, '&#39;')}')">${opt}</button>
+            `).join('')}
+
+            <div style="margin-top:auto;">
+                <button class="neo-button bg-coral" ${!state.selectedOption ? 'disabled' : ''}
+                        onclick="checkClimbAnswer()">${getString('check_btn')}</button>
+            </div>
+        </div>`;
+}
+
+function renderClimbResult() {
+    const won = state.climbLastResult === 'up';
+    const emoji = won ? '⬆️' : '⬇️';
+    const label = won ? 'נכון! הצלחת לעלות רמה!' : 'לא נכון. ירדת רמה';
+    const bg = won ? 'var(--accent-teal)' : 'var(--accent-mint)';
+    const TOTAL_STEPS = 10;
+
+    // Mountain made of Unicode blocks — each level is a row
+    const mountain = Array.from({ length: TOTAL_STEPS }, (_, i) => {
+        const level = TOTAL_STEPS - 1 - i;       // level 9 at top, 0 at bottom
+        const filled = level < state.rank;
+        const isClimber = level === state.rank - 1 && won || level === state.rank && !won;
+        const width = 30 + (level + 1) * 26;    // wider at bottom
+        return `<div style="
+            width: ${width}px;
+            height: 26px;
+            background: ${filled ? 'var(--app-text)' : 'rgba(33,2,110,0.12)'};
+            border-radius: 4px;
+            display:flex; align-items:center; justify-content:center;
+            margin: 2px auto;
+            position:relative;
+            transition: all 0.5s ease;
+        ">${isClimber ? '<span style="font-size:18px; position:absolute;">🧗</span>' : ''}</div>`;
+    }).join('');
+
+    // Auto-advance to next question after 2s
+    setTimeout(() => {
+        if (state.rank >= 10) {
+            navigate('GAME_OVER');
+        } else if (state.rank < 0) {
+            navigate('GAME_OVER');
+        } else {
+            state.selectedOption = null;
+            navigate('PLAYING_CLIMB');
+        }
+    }, 2000);
+
+    return `
+        <div class="screen-wrapper" style="align-items:center; justify-content:center;">
+            <div style="
+                text-align:center;
+                background: ${bg};
+                border-radius: 24px;
+                padding: 32px 24px;
+                width: 100%;
+                max-width: 360px;
+                border: 2px solid var(--app-text);
+                box-shadow: 0 6px 0 rgba(33,2,110,0.3);
+            ">
+                <div style="font-size: 56px; margin-bottom: 8px;">${emoji}</div>
+                <h2 style="font-size: 22px; margin-bottom: 20px;">${label}</h2>
+                <div style="display:flex; flex-direction:column; align-items:center;">
+                    ${mountain}
+                </div>
+                <p class="bold" style="margin-top: 16px; font-size: 18px;">רמה ${Math.max(0, state.rank)} / 10</p>
+            </div>
+        </div>`;
 }
 
 function renderGameOver() {
+    let headline = '';
+    let subline = '';
+    if (state.selectedMode === 'CLIMB') {
+        if (state.rank >= 10) {
+            headline = '🏆 עברת את האתגר!';
+            subline = 'הגעת לרמה 10!';
+        } else {
+            headline = '💥 ירדת מההר!';
+            subline = `סיימת ברמה ${Math.max(0, state.rank)}`;
+        }
+    } else if (state.selectedMode === 'BET_BURN') {
+        headline = getString('game_over');
+        subline = '⚡ ' + state.energy;
+    } else {
+        headline = getString('game_over');
+        subline = state.score + ' / ' + state.currentPlayList.length;
+    }
+
     return `
         <div class="text-center" style="margin-top:auto; margin-bottom:auto;">
-            <h1 class="color-indigo">${getString('game_over')}</h1>
+            <h1 class="color-indigo">${headline}</h1>
             <div class="spacer-md"></div>
-            <h1 style="font-size:48px;" class="color-indigo">
-                ${state.selectedMode === 'BET_BURN' ? '⚡ ' + state.energy : state.score + ' / ' + state.currentPlayList.length}
-            </h1>
+            <h1 style="font-size:48px;" class="color-indigo">${subline}</h1>
             <div class="spacer-lg"></div>
             <button class="neo-button bg-coral" style="height:56px;" onclick="navigate('MENU')">${getString('continue_btn')}</button>
         </div>`;
@@ -397,7 +516,10 @@ window.startPlay = (cat) => {
     state.activeCategory = cat;
     state.currentPlayList = state.questionBank.filter(q => q.category === cat);
     // Reset variables
-    state.currentIndex = 0; state.score = 0; state.energy = 100; state.rank = 0; state.currentPhase = 'BETTING'; state.userBetInput = '';
+    state.currentIndex = 0; state.score = 0; state.energy = 100;
+    state.rank = 0; state.climbLastResult = null;
+    state.currentPhase = 'BETTING'; state.userBetInput = '';
+    state.selectedOption = null;
 
     if (state.currentPlayList.length > 0) {
         navigate(state.selectedMode === 'BET_BURN' ? 'PLAYING_BET' : state.selectedMode === 'CLIMB' ? 'PLAYING_CLIMB' : 'PLAYING_CLASSIC');
@@ -422,6 +544,25 @@ window.checkClassicAnswer = () => {
     } else {
         navigate('GAME_OVER');
     }
+};
+
+window.checkClimbAnswer = () => {
+    const qIdx = state.currentIndex % state.currentPlayList.length;
+    const q = state.currentPlayList[qIdx];
+    const correct = q.correctMap[state.currentLang.code] || q.correctMap["en"];
+    const isCorrect = state.selectedOption === correct;
+
+    if (isCorrect) {
+        state.rank = Math.min(10, state.rank + 1);
+        state.climbLastResult = 'up';
+    } else {
+        state.rank = Math.max(-1, state.rank - 1);
+        state.climbLastResult = 'down';
+    }
+
+    state.currentIndex++;
+    // Navigate to result screen; it auto-advances after 2s
+    navigate('CLIMB_RESULT');
 };
 
 window.checkBetAnswer = () => {
