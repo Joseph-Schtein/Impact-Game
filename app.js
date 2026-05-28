@@ -105,6 +105,7 @@ function render() {
         case 'SPLASH': html = renderSplash(); break;
         case 'MENU': html = renderMenu(); break;
         case 'MODE_SELECT': html = renderModeSelect(); break;
+        case 'BET_MENU': html = renderBetMenu(); break;
         case 'SUBJECTS': html = renderSubjects(); break;
         case 'PLAYING_CLASSIC': html = renderClassic(); break;
         case 'PLAYING_BET': html = renderBetBurn(); break;
@@ -137,8 +138,7 @@ function renderMenu() {
             <h1 class="main-title">${getString('menu_title')}</h1>
             <div class="button-group">
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('play_btn')}</button>
-                <button class="neo-button bg-coral" style="height:60px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
-                <button class="neo-button bg-teal" style="height:60px; margin-top: 12px;" onclick="navigate('LEADERBOARD')">${getString('leaderboard_btn')}</button>
+                <button class="neo-button bg-coral" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
             </div>
         </div>`;
 }
@@ -167,6 +167,19 @@ function renderSubjects() {
             <h2 class="main-title">${getString('sub_title')}</h2>
             <div class="button-group">
                 ${cats}
+                <div class="spacer-lg"></div>
+                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate(state.selectedMode === 'BET_BURN' ? 'BET_MENU' : 'MODE_SELECT')">${getString('back')}</button>
+            </div>
+        </div>`;
+}
+
+function renderBetMenu() {
+    return `
+        <div class="screen-wrapper">
+            <h2 class="main-title">${getString('mode_bet')}</h2>
+            <div class="button-group">
+                <button class="neo-button bg-coral" style="height:60px;" onclick="navigate('SUBJECTS')">התחל / המשך</button>
+                <button class="neo-button bg-teal" style="height:60px; margin-top:12px;" onclick="navigate('LEADERBOARD')">${getString('leaderboard_btn')}</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MODE_SELECT')">${getString('back')}</button>
             </div>
@@ -245,7 +258,7 @@ function renderBetBurn() {
             <p class="bold">מאגר אנרגיה</p>
             <h1 class="color-indigo" style="font-size: 48px;">⚡ ${state.energy}</h1>
             <div class="spacer-lg"></div>
-            <p>הזן את ההימור שלך:</p>
+            <p>הזן את ההימור שלך (מקסימום ${state.energy}):</p>
             <input type="number" class="neo-input bet-input" value="${state.userBetInput}" oninput="updateBet(this.value)">
             <div class="spacer-md"></div>
             <button id="lockBetBtn" class="neo-button ${isValid ? 'bg-coral' : ''}" ${!isValid ? 'disabled' : ''} 
@@ -545,7 +558,7 @@ function renderGameOver() {
         `;
     } else {
         headline = getString('game_over');
-        subline = state.score + ' / ' + state.currentPlayList.length;
+        subline = `<span dir="ltr">${state.score} / ${state.currentPlayList.length}</span>`;
     }
 
     return `
@@ -569,7 +582,7 @@ function renderLeaderboard() {
                 <h2 class="main-title">${getString('leaderboard_title')}</h2>
                 <p class="bold color-indigo">טוען נתונים...</p>
                 <div class="spacer-lg"></div>
-                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
+                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('BET_MENU')">${getString('back')}</button>
             </div>
         `;
     }
@@ -596,7 +609,7 @@ function renderLeaderboard() {
                 ${listHtml || '<p class="text-center bold color-indigo">אין עדיין תוצאות.</p>'}
             </div>
             <div class="spacer-lg"></div>
-            <button class="neo-button bg-Back" style="max-width: 100px; margin-bottom: 20px;" onclick="navigate('MENU')">${getString('back')}</button>
+            <button class="neo-button bg-Back" style="max-width: 100px; margin-bottom: 20px;" onclick="navigate('BET_MENU')">${getString('back')}</button>
         </div>
     `;
 }
@@ -795,7 +808,14 @@ function shuffleArray(array) {
 
 window.setLang = (code) => { state.currentLang = Object.values(Lang).find(l => l.code === code); render(); };
 window.navigate = (screen) => { state.currentScreen = screen; render(); };
-window.setMode = (mode) => { state.selectedMode = mode; navigate('SUBJECTS'); };
+window.setMode = (mode) => {
+    state.selectedMode = mode;
+    if (mode === 'BET_BURN') {
+        navigate('BET_MENU');
+    } else {
+        navigate('SUBJECTS');
+    }
+};
 window.startPlay = (cat) => {
     state.activeCategory = cat;
 
@@ -908,40 +928,39 @@ window.checkClimbAnswer = () => {
 };
 
 window.checkBetAnswer = () => {
-    state.isAnimating = true;
+    const q = state.currentPlayList[state.currentIndex];
+    const correct = q.correctMap[state.currentLang.code] || q.correctMap["en"];
+    const isCorrect = state.selectedOption === correct;
+    const bet = parseInt(state.userBetInput);
+
+    state.isAnimatingResult = true;
+    state.lastResultIsCorrect = isCorrect;
     render();
 
     setTimeout(() => {
-        const q = state.currentPlayList[state.currentIndex];
-        const correct = q.correctMap[state.currentLang.code] || q.correctMap["en"];
-        const bet = parseInt(state.userBetInput);
-
-        if (state.selectedOption === correct) {
+        state.isAnimatingResult = false;
+        
+        if (isCorrect) {
             state.energy += bet;
         } else {
             state.energy -= bet;
-            appContainer.classList.add('shake');
-            setTimeout(() => appContainer.classList.remove('shake'), 400);
         }
 
         // Save latest points to local database
         localStorage.setItem('otakuBetBurnEnergy', state.energy);
 
-        setTimeout(() => {
-            if (state.energy <= 0) {
-                navigate('GAME_OVER');
-            } else if (state.currentIndex >= Math.min(state.currentPlayList.length - 1, 9)) {
-                navigate('GAME_OVER');
-            } else {
-                state.userBetInput = '';
-                state.selectedOption = null;
-                state.isAnimating = false;
-                state.currentPhase = 'BETTING';
-                state.currentIndex++;
-                render();
-            }
-        }, 800);
-    }, 100);
+        if (state.energy <= 0) {
+            navigate('GAME_OVER');
+        } else if (state.currentIndex >= Math.min(state.currentPlayList.length - 1, 9)) {
+            navigate('GAME_OVER');
+        } else {
+            state.userBetInput = '';
+            state.selectedOption = null;
+            state.currentPhase = 'BETTING';
+            state.currentIndex++;
+            render();
+        }
+    }, 1200);
 };
 
 // --- REACTIVE CORRECT ANSWER DROPDOWN ---
