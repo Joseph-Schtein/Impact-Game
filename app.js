@@ -834,10 +834,19 @@ function shuffleArray(array) {
 }
 
 window.setLang = (code) => { state.currentLang = Object.values(Lang).find(l => l.code === code); render(); };
-window.navigate = (screen) => {
-    if (window.clearQuestionTimer) window.clearQuestionTimer();
-    state.currentScreen = screen;
-    render();
+window.navigate = (screen) => { 
+    if(window.clearQuestionTimer) window.clearQuestionTimer();
+
+    // Prevent race condition: if everyone is already finished, go straight to results
+    if (screen === 'MULTIPLAYER_WAIT' && state.multiplayerPlayers) {
+        const allFinished = Object.values(state.multiplayerPlayers).every(p => p && p.finished);
+        if (allFinished) {
+            screen = 'MULTIPLAYER_RESULTS';
+        }
+    }
+
+    state.currentScreen = screen; 
+    render(); 
 };
 window.setMode = (mode) => {
     state.selectedMode = mode;
@@ -1336,7 +1345,8 @@ function renderMultiplayerResults() {
             <h1 style="font-size:48px; color:${resultColor};">${resultTitle}</h1>
             <div class="spacer-md"></div>
             
-            <div style="width:100%; max-width: 400px;">
+            <p class="bold" style="font-size:24px;">טבלת מובילים סופית:</p>
+            <div style="width:100%; max-width: 400px; margin-bottom: 20px;">
                 ${podiumHtml}
             </div>
             
