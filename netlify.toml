@@ -1,3 +1,3 @@
 [build]
-  command = "mkdir -p public && cp Index.HTML app.js styles.css public/"
+  command = "mkdir -p public && cp index.HTML app.js styles.css public/"
   publish = "public"
