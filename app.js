@@ -47,7 +47,8 @@ const state = {
     rank: 0,           // Climb: current level 0-10
     climbLastResult: null, // 'up' | 'down' | null
     selectedOption: null,
-    isAnimating: false,
+    isAnimatingResult: false,
+    lastResultIsCorrect: false,
     currentPhase: 'BETTING', // For Bet & Burn
     userBetInput: ''
 };
@@ -845,6 +846,7 @@ window.startPlay = (cat) => {
     state.rank = 0; state.climbLastResult = null;
     state.currentPhase = 'BETTING'; state.userBetInput = '';
     state.selectedOption = null;
+    state.isAnimatingResult = false; state.lastResultIsCorrect = false;
 
     if (state.currentPlayList.length > 0) {
         navigate(state.selectedMode === 'BET_BURN' ? 'PLAYING_BET' : state.selectedMode === 'CLIMB' ? 'PLAYING_CLIMB' : 'PLAYING_CLASSIC');
