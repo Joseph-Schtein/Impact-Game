@@ -122,8 +122,8 @@ function render() {
 // --- SCREEN COMPONENTS ---
 function renderSplash() {
     setTimeout(() => { state.currentScreen = 'MENU'; render(); }, 2000);
-    return `<div class="screen-wrapper" style="align-items:center; justify-content:center;">
-                <h1 style="font-size:42px; color:var(--app-text)">אוטאקו טריוויה</h1>
+    return `<div class="screen-wrapper" style="align-items:center; justify-content:center; text-align:center;">
+                <h1 style="font-size:clamp(36px, 12vw, 84px); line-height:1.2; color:var(--app-text)">המדריך למתחיל<br>באנימה</h1>
             </div>`;
 }
 
@@ -941,7 +941,7 @@ window.checkBetAnswer = () => {
 
     setTimeout(() => {
         state.isAnimatingResult = false;
-        
+
         if (isCorrect) {
             state.energy += bet;
         } else {
