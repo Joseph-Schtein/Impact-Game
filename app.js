@@ -22,7 +22,10 @@ const dict = {
     "leaderboard_btn": { en: "LEADERBOARD", he: "טבלת מובילים", ar: "لوحة المتصدرين", ru: "ТАБЛИЦА ЛИДЕРОВ" },
     "leaderboard_title": { en: "Top 100", he: "100 המובילים", ar: "أفضل 100", ru: "Топ 100" },
     "submit_score": { en: "Submit Score", he: "שלח תוצאה", ar: "إرسال النتيجة", ru: "Отправить результат" },
-    "your_name": { en: "Your Name", he: "השם שלך", ar: "اسمك", ru: "Ваше имя" }
+    "your_name": { en: "Your Name", he: "השם שלך", ar: "اسمك", ru: "Ваше имя" },
+    "mode_multiplayer": { en: "1v1 Online", he: "1 נגד 1 אונליין", ar: "1 ضد 1 أونلاين", ru: "1 на 1 Онлайн" },
+    "create_room": { en: "Create Room", he: "צור חדר", ar: "إنشاء غرفة", ru: "Создать комнату" },
+    "join_room": { en: "Join Room", he: "הצטרף לחדר", ar: "الانضمام لغرفة", ru: "Присоединиться к комнате" }
 };
 
 function getString(key) {
@@ -49,7 +52,16 @@ const state = {
     selectedOption: null,
     isAnimating: false,
     currentPhase: 'BETTING', // For Bet & Burn
-    userBetInput: ''
+    userBetInput: '',
+    
+    // Multiplayer Data
+    roomId: null,
+    isHost: false,
+    opponentName: 'יריב',
+    opponentScore: 0,
+    multiplayerStatus: null,
+    opponentFinished: false,
+    isMultiplayer: false
 };
 
 const categoryList = ["אנימה", "תרבות פופ", "מושגים"];
@@ -114,6 +126,10 @@ function render() {
         case 'GAME_OVER': html = renderGameOver(); break;
         case 'ADD_QUESTION': html = renderAddQuestion(); break;
         case 'LEADERBOARD': html = renderLeaderboard(); break;
+        case 'MULTIPLAYER_MENU': html = renderMultiplayerMenu(); break;
+        case 'MULTIPLAYER_LOBBY': html = renderMultiplayerLobby(); break;
+        case 'MULTIPLAYER_WAIT': html = renderMultiplayerWaitScreen(); break;
+        case 'MULTIPLAYER_RESULTS': html = renderMultiplayerResults(); break;
     }
     appContainer.innerHTML = html;
 }
@@ -151,6 +167,7 @@ function renderModeSelect() {
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC')"> ${getString('mode_classic')}</button>
                 <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB')"> ${getString('mode_climb')}</button>
                 <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN')"> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-Back" style="height:60px; color: var(--vibrant-indigo); border: 2px solid var(--vibrant-indigo);" onclick="setMode('MULTIPLAYER')"> ⚔️ ${getString('mode_multiplayer')}</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
@@ -808,12 +825,17 @@ function shuffleArray(array) {
 
 window.setLang = (code) => { state.currentLang = Object.values(Lang).find(l => l.code === code); render(); };
 window.navigate = (screen) => { state.currentScreen = screen; render(); };
-window.setMode = (mode) => {
-    state.selectedMode = mode;
-    if (mode === 'BET_BURN') {
+window.setMode = (mode) => { 
+    state.selectedMode = mode; 
+    if(mode === 'MULTIPLAYER') {
+        state.isMultiplayer = true;
+        navigate('MULTIPLAYER_MENU');
+    } else if (mode === 'BET_BURN') {
+        state.isMultiplayer = false;
         navigate('BET_MENU');
     } else {
-        navigate('SUBJECTS');
+        state.isMultiplayer = false;
+        navigate('SUBJECTS'); 
     }
 };
 window.startPlay = (cat) => {
@@ -879,16 +901,35 @@ window.checkAnswer = () => {
     state.lastResultIsCorrect = isCorrect;
     render();
 
-    setTimeout(() => {
+    setTimeout(async () => {
         state.isAnimatingResult = false;
         if (isCorrect) state.score++;
+
+        if (state.isMultiplayer) {
+            try {
+                const updateData = {};
+                if (state.isHost) updateData.hostScore = state.score;
+                else updateData.guestScore = state.score;
+                await window.updateDoc(window.doc(window.db, "rooms", state.roomId), updateData);
+            } catch(e) { console.error("Error syncing score:", e); }
+        }
 
         if (state.currentIndex < state.currentPlayList.length - 1) {
             state.currentIndex++;
             state.selectedOption = null;
             render();
         } else {
-            navigate('GAME_OVER');
+            if (state.isMultiplayer) {
+                try {
+                    const updateData = {};
+                    if (state.isHost) updateData.hostFinished = true;
+                    else updateData.guestFinished = true;
+                    await window.updateDoc(window.doc(window.db, "rooms", state.roomId), updateData);
+                } catch(e) { console.error("Error finishing match:", e); }
+                navigate('MULTIPLAYER_WAIT');
+            } else {
+                navigate('GAME_OVER');
+            }
         }
     }, 1200);
 };
@@ -990,3 +1031,199 @@ window.updateCorrectDropdown = () => {
 
 // Initialize
 // initDB() and render() are called from the Firebase module script in index.html
+
+// --- MULTIPLAYER LOBBY AND SCREENS ---
+let unsubscribeMultiplayer = null;
+
+function renderMultiplayerMenu() {
+    return `
+        <div class="screen-wrapper">
+            <h2 class="main-title">1v1 Online</h2>
+            <div class="button-group">
+                <button class="neo-button bg-coral" style="height:60px;" onclick="createMultiplayerRoom()">צור חדר (מארח)</button>
+                <div class="spacer-sm"></div>
+                <input type="text" id="joinCodeInput" class="neo-input" placeholder="הכנס קוד חדר" style="text-align: center; font-size: 24px; text-transform: uppercase;">
+                <button class="neo-button bg-teal" style="height:60px;" onclick="joinMultiplayerRoom()">הצטרף לחדר</button>
+                <div class="spacer-lg"></div>
+                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MODE_SELECT')">${getString('back')}</button>
+            </div>
+        </div>
+    `;
+}
+
+window.createMultiplayerRoom = async () => {
+    let name = localStorage.getItem('otakuPlayerName');
+    if(!name) {
+        name = prompt("הכנס את שמך:");
+        if(!name) return;
+        localStorage.setItem('otakuPlayerName', name);
+    }
+    
+    // Generate 4-char code
+    const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+    state.roomId = code;
+    state.isHost = true;
+    state.opponentName = 'ממתין...';
+    state.multiplayerStatus = 'waiting';
+
+    // Shuffle questions - pull 10 random questions from the entire bank
+    const shuffled = [...state.questionBank].sort(() => Math.random() - 0.5).slice(0, 10).map(q => {
+        const clonedQ = { ...q, optionsMap: {} };
+        for (let lang in q.optionsMap) {
+            clonedQ.optionsMap[lang] = shuffleArray(q.optionsMap[lang]);
+        }
+        return clonedQ;
+    });
+    
+    try {
+        await window.setDoc(window.doc(window.db, "rooms", code), {
+            status: 'waiting',
+            hostName: name,
+            hostScore: 0,
+            hostFinished: false,
+            guestName: '',
+            guestScore: 0,
+            guestFinished: false,
+            playlist: shuffled
+        });
+        
+        listenToRoom(code);
+        navigate('MULTIPLAYER_LOBBY');
+    } catch(e) {
+        console.error(e);
+        showToast("שגיאה ביצירת חדר", 'error');
+    }
+};
+
+window.joinMultiplayerRoom = async () => {
+    const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+    if(!code) return showToast("הכנס קוד", 'error');
+
+    let name = localStorage.getItem('otakuPlayerName');
+    if(!name) {
+        name = prompt("הכנס את שמך:");
+        if(!name) return;
+        localStorage.setItem('otakuPlayerName', name);
+    }
+
+    try {
+        const roomRef = window.doc(window.db, "rooms", code);
+        const roomSnap = await window.getDoc(roomRef);
+        
+        if(!roomSnap.exists()) {
+            return showToast("חדר לא נמצא!", 'error');
+        }
+        
+        const data = roomSnap.data();
+        if(data.status !== 'waiting') {
+            return showToast("המשחק כבר התחיל!", 'error');
+        }
+
+        state.roomId = code;
+        state.isHost = false;
+        state.opponentName = data.hostName;
+        state.currentPlayList = data.playlist;
+
+        await window.updateDoc(roomRef, {
+            guestName: name,
+            status: 'playing'
+        });
+
+        listenToRoom(code);
+        state.currentIndex = 0;
+        state.score = 0;
+        navigate('PLAYING_CLASSIC');
+    } catch(e) {
+        console.error(e);
+        showToast("שגיאה בהצטרפות", 'error');
+    }
+};
+
+function listenToRoom(code) {
+    if(unsubscribeMultiplayer) unsubscribeMultiplayer();
+    
+    unsubscribeMultiplayer = window.onSnapshot(window.doc(window.db, "rooms", code), (doc) => {
+        if(!doc.exists()) return;
+        const data = doc.data();
+        state.multiplayerStatus = data.status;
+        
+        if(state.isHost) {
+            state.opponentName = data.guestName || 'ממתין...';
+            state.opponentScore = data.guestScore;
+            state.opponentFinished = data.guestFinished;
+            
+            if(data.status === 'playing' && state.currentScreen === 'MULTIPLAYER_LOBBY') {
+                state.currentPlayList = data.playlist;
+                state.currentIndex = 0;
+                state.score = 0;
+                navigate('PLAYING_CLASSIC');
+            }
+        } else {
+            state.opponentScore = data.hostScore;
+            state.opponentFinished = data.hostFinished;
+        }
+
+        if(state.currentScreen === 'MULTIPLAYER_WAIT') {
+            if(data.hostFinished && data.guestFinished) {
+                navigate('MULTIPLAYER_RESULTS');
+            }
+        }
+    });
+}
+
+function renderMultiplayerLobby() {
+    return `
+        <div class="screen-wrapper" style="align-items:center; justify-content:center;">
+            <h2 class="main-title">חדר המתנה</h2>
+            <p>קוד החדר שלך:</p>
+            <h1 class="color-coral" style="font-size: 64px; letter-spacing: 4px; background: var(--white); padding: 10px 20px; border-radius: 12px; border: 4px solid var(--app-text);">${state.roomId}</h1>
+            <div class="spacer-md"></div>
+            <p class="bold" style="font-size: 24px;">יריב: <span class="color-indigo">${state.opponentName}</span></p>
+            <div class="spacer-md"></div>
+            <p style="opacity:0.7;">המשחק יתחיל ברגע שיריב יצטרף!</p>
+        </div>
+    `;
+}
+
+function renderMultiplayerWaitScreen() {
+    return `
+        <div class="screen-wrapper" style="align-items:center; justify-content:center;">
+            <h2 class="main-title">סיימת!</h2>
+            <p class="bold" style="font-size:32px;">הניקוד שלך: <span class="color-coral">${state.score}</span> / 10</p>
+            <div class="spacer-lg"></div>
+            <p class="bold" style="font-size:24px;">ממתין ש-${state.opponentName} יסיים...</p>
+        </div>
+    `;
+}
+
+function renderMultiplayerResults() {
+    const myScore = state.score;
+    const opScore = state.opponentScore;
+    
+    let resultTitle = "תיקו!";
+    let resultColor = "var(--vibrant-indigo)";
+    if(myScore > opScore) { resultTitle = "ניצחת!"; resultColor = "var(--vibrant-teal)"; }
+    else if(myScore < opScore) { resultTitle = "הפסדת..."; resultColor = "var(--vibrant-coral)"; }
+
+    return `
+        <div class="screen-wrapper" style="align-items:center; justify-content:center;">
+            <h1 style="font-size:64px; color:${resultColor};">${resultTitle}</h1>
+            <div class="spacer-lg"></div>
+            
+            <div style="display:flex; justify-content: space-around; width:100%; max-width: 400px;">
+                <div class="text-center" style="background:var(--white); padding:20px; border-radius:12px; border:3px solid var(--app-text); width: 45%;">
+                    <h3 class="color-indigo" style="margin:0 0 10px 0;">אתה</h3>
+                    <h2 style="font-size:48px; margin:0;">${myScore}</h2>
+                </div>
+                
+                <div class="text-center" style="background:var(--white); padding:20px; border-radius:12px; border:3px solid var(--app-text); width: 45%;">
+                    <h3 class="color-indigo" style="margin:0 0 10px 0;">${state.opponentName}</h3>
+                    <h2 style="font-size:48px; margin:0;">${opScore}</h2>
+                </div>
+            </div>
+            
+            <div class="spacer-lg"></div>
+            <button class="neo-button bg-Back" style="height:60px; max-width:200px;" onclick="navigate('MENU')">${getString('continue_btn')}</button>
+        </div>
+    `;
+}
