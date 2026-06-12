@@ -68,7 +68,7 @@ const state = {
     // Timer
     questionTimer: 15,
     timerInterval: null,
-    
+
     // Multiplayer sync
     isWaitingForOthers: false,
 
@@ -157,7 +157,6 @@ function render() {
         case 'MULTIPLAYER_RESULTS': html = renderMultiplayerResults(); break;
         case 'PLAYING_HANGMAN': html = renderHangman(); break;
         case 'HANGMAN_RESULTS': html = renderHangmanResults(); break;
-        case 'ADD_HANGMAN_WORD': html = renderAddHangmanWord(); break;
     }
     appContainer.innerHTML = html;
 }
@@ -179,7 +178,7 @@ function renderWaitingScreen() {
     if (state.selectedMode === 'CLASSIC') {
         const p = Object.keys(state.multiplayerPlayers).length;
         rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
-            <b class="color-coral">חוקי ניקוד:</b> העונה ראשון נכונה מקבל ${p} נק', השני ${Math.max(1, p-1)} נק', וכו'. תשובה שגויה מעניקה 0 נק'.
+            <b class="color-coral">חוקי ניקוד:</b> העונה ראשון נכונה מקבל ${p} נק', השני ${Math.max(1, p - 1)} נק', וכו'. תשובה שגויה מעניקה 0 נק'.
         </p>`;
     } else if (state.selectedMode === 'CLIMB') {
         rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
@@ -226,7 +225,6 @@ function renderMenu() {
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('single_btn')}</button>
                 <button class="neo-button bg-Back" style="height:60px; margin-top: 12px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('multi_btn')}</button>
                 <button class="neo-button bg-coral" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
-                <button class="neo-button bg-teal" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_HANGMAN_WORD')">➕ הוסף מילת הגמן</button>
             </div>
         </div>`;
 }
@@ -344,19 +342,16 @@ function renderClassic() {
 
     return `
         <div class="screen-wrapper">
-            <div style="display:flex; justify-content:center;">
-                <button class="neo-button bg-Back" style="width:auto; padding:8px 20px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
-            </div>
-            <div class="spacer-md"></div>
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;">⏳ ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <h2 style="font-size: 20px;">${qText}</h2>
             <div class="spacer-lg"></div>
             ${generateOptionsHTML(opts)}
-            <div style="margin-top:auto;">
+            <div style="margin-top:auto; width:100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                         onclick="checkAnswer()">${getString('check_btn')}</button>
+                <button class="neo-button bg-Back" style="margin-top: 12px; max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>`;
 }
@@ -398,12 +393,11 @@ function renderBetBurn() {
 
     return `
         <div class="screen-wrapper">
-            <div style="display:flex; justify-content:center;">
-                <button class="neo-button bg-Back" style="width:auto; padding:8px 20px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
-            </div>
-            <div class="spacer-md"></div>
             <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                 ${content}
+            </div>
+            <div style="margin-top:12px; width:100%;">
+                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>`;
 }
@@ -418,7 +412,7 @@ function buildMountainSVG(rank, animateClass, oppRank = -1, isMultiplayer = fals
             newX = 20 + 240 * t;
             newY = 220 - 192 * t;
             const oldRank = anim === 'climber-up' ? Math.max(isMultiplayer ? 0 : -1, r - 1) :
-                            (anim === 'climber-down' ? Math.min(10, r + 1) : r);
+                (anim === 'climber-down' ? Math.min(10, r + 1) : r);
             const tOld = oldRank / 10;
             oldX = 20 + 240 * tOld;
             oldY = 220 - 192 * tOld;
@@ -426,7 +420,7 @@ function buildMountainSVG(rank, animateClass, oppRank = -1, isMultiplayer = fals
             newX = 500 - 240 * t;
             newY = 220 - 192 * t;
             const oldRank = anim === 'climber-up' ? Math.max(isMultiplayer ? 0 : -1, r - 1) :
-                            (anim === 'climber-down' ? Math.min(10, r + 1) : r);
+                (anim === 'climber-down' ? Math.min(10, r + 1) : r);
             const tOld = oldRank / 10;
             oldX = 500 - 240 * tOld;
             oldY = 220 - 192 * tOld;
@@ -537,7 +531,7 @@ function buildMountainSVG(rank, animateClass, oppRank = -1, isMultiplayer = fals
     const climberLeft = getClimberHtml(leftRank, leftAnimate, 'left');
     const climberRight = getClimberHtml(rightRank, rightAnimate, 'right');
 
-    const rankDisplay = isMultiplayer ? 
+    const rankDisplay = isMultiplayer ?
         `רמה ${Math.max(0, isHost ? leftRank : rightRank)} / 10 (אתה) | רמה ${Math.max(0, isHost ? rightRank : leftRank)} / 10 (יריב)` :
         `רמה ${Math.max(0, leftRank)} / 10`;
 
@@ -639,11 +633,6 @@ function renderClimb() {
 
     return `
         <div class="screen-wrapper ${screenAnimClass}" id="climb-screen">
-            <div style="display:flex; justify-content:center; align-items:center;">
-                <button class="neo-button bg-Back" style="width:auto; padding:8px 20px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
-            </div>
-            <div class="spacer-sm"></div>
-
             <!-- Mountain SVG -->
             ${buildMountainSVG(state.rank, '', oppRank, state.isMultiplayer, state.isHost)}
 
@@ -655,9 +644,10 @@ function renderClimb() {
                 ${generateOptionsHTML(opts)}
             </div>
 
-            <div style="margin-top:auto;">
+            <div style="margin-top:auto; width:100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''}
                         onclick="checkClimbAnswer()">${getString('check_btn')}</button>
+                <button class="neo-button bg-Back" style="margin-top: 12px; max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>`;
 }
@@ -767,10 +757,6 @@ function renderMatchPairs() {
 
     return `
         <div class="screen-wrapper">
-            <div style="display:flex; justify-content:center;">
-                <button class="neo-button bg-Back" style="width:auto; padding:8px 20px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
-            </div>
-            <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;">⏳ ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <h2 style="font-size: 20px; text-align: center;">התאם את הזוגות (נקודות: ${state.score} / 25)</h2>
             
@@ -778,6 +764,9 @@ function renderMatchPairs() {
                 <svg class="match-svg-overlay" id="match-svg"></svg>
                 <div class="match-column">${leftColHtml}</div>
                 <div class="match-column">${rightColHtml}</div>
+            </div>
+            <div style="margin-top:auto; width:100%; padding-top:20px;">
+                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>
     `;
@@ -807,7 +796,7 @@ window.checkMatchPair = () => {
         rightItem.matched = true;
         state.matchedPairsCount++;
         state.score++;
-        
+
         if (state.isMultiplayer) {
             window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
                 [`players.${state.myPlayerName}.score`]: state.score
@@ -832,7 +821,7 @@ window.checkMatchPair = () => {
             state.matchErrorRight = null;
             state.matchSelections = { left: null, right: null };
             render();
-        }, 400); 
+        }, 400);
     }
 };
 
@@ -852,7 +841,7 @@ window.drawMatchLines = () => {
             </marker>
         </defs>
     `;
-    
+
     pool.lefts.forEach((lItem, lIdx) => {
         if (lItem.matched) {
             const rIdx = pool.rights.findIndex(r => r.id === lItem.id);
@@ -862,12 +851,12 @@ window.drawMatchLines = () => {
                 if (elLeft && elRight) {
                     const rL = elLeft.getBoundingClientRect();
                     const rR = elRight.getBoundingClientRect();
-                    
+
                     const x1 = state.currentLang.isRtl ? (rL.left - rectContainer.left) : (rL.right - rectContainer.left);
                     const y1 = rL.top - rectContainer.top + rL.height / 2;
                     const x2 = state.currentLang.isRtl ? (rR.right - rectContainer.left) : (rR.left - rectContainer.left);
                     const y2 = rR.top - rectContainer.top + rR.height / 2;
-                    
+
                     const mx = (x1 + x2) / 2;
                     svgHtml += `<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="#036142" stroke-width="4" stroke-linecap="round" marker-start="url(#match-arrow)" marker-end="url(#match-arrow)"/>`;
                 }
@@ -1108,7 +1097,7 @@ window.updatePairButtons = () => {
 
         let removeBtn = btnContainer.querySelector('.remove-pair-btn');
         let addBtn = btnContainer.querySelector('.add-pair-btn');
-        
+
         if (addBtn) {
             addBtn.remove();
         }
@@ -1144,7 +1133,7 @@ function renderAddQuestion() {
     ).join('');
 
     let initialPairs = '';
-    for(let i=0; i<5; i++) {
+    for (let i = 0; i < 5; i++) {
         initialPairs += `
         <div class="pair-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
             <input type="text" class="neo-input match-left" placeholder="צד ימין (לדוגמה: לופי)" style="margin-bottom:0; flex: 1;">
@@ -1163,9 +1152,11 @@ function renderAddQuestion() {
                 <select id="newQType" class="neo-input" style="height: 58px; font-weight: bold; background-color: var(--white);" onchange="
                     document.getElementById('triviaFields').style.display = this.value === 'trivia' ? 'block' : 'none';
                     document.getElementById('matchFields').style.display = this.value === 'match_pair' ? 'block' : 'none';
+                    document.getElementById('hangmanFields').style.display = this.value === 'hangman' ? 'block' : 'none';
                 ">
                     <option value="trivia">שאלת טריוויה (4 אפשרויות)</option>
                     <option value="match_pair">התאמת זוגות (5-10 זוגות)</option>
+                    <option value="hangman">משחק הגמן (מילה או ביטוי)</option>
                 </select>
 
                 <div id="triviaFields">
@@ -1191,6 +1182,11 @@ function renderAddQuestion() {
                     </div>
                     <button class="neo-button bg-Back" id="mainAddPairBtn" style="height: 40px; padding: 0; margin-top: 10px;" onclick="window.addPairRow()">+ הוסף זוג</button>
                 </div>
+
+                <div id="hangmanFields" style="display: none;">
+                    <label class="bold">מילה או ביטוי להגמן (עד 20 תווים)</label>
+                    <input type="text" id="newHangmanWord" class="neo-input" placeholder="לדוגמא, ONE PIECE או וואן פיס" style="text-transform: uppercase;" maxlength="20">
+                </div>
             </div>
             
             <div class="spacer-sm"></div>
@@ -1209,7 +1205,7 @@ async function saveNewQuestion() {
     const category = document.querySelector('input[name="newQCategory"]:checked').value;
     const qType = document.getElementById('newQType').value;
     const src = state.currentLang.code;
-    
+
     // UI Feedback
     const btn = document.getElementById('saveQBtn');
     btn.innerText = "מתרגם ושומר...";
@@ -1246,10 +1242,34 @@ async function saveNewQuestion() {
             newQuestion.optionsMap = tO;
             newQuestion.correctMap = tA;
 
+        } else if (qType === 'hangman') {
+            // Remove multiple consecutive spaces and trim
+            const word = document.getElementById('newHangmanWord').value.trim().replace(/\s+/g, ' ').toUpperCase();
+            if (!word || word.replace(/\s+/g, '').length < 2) {
+                showToast("יש להזין ביטוי חוקי (לפחות 2 אותיות)!", 'error');
+                btn.innerText = "שמור שאלה"; btn.disabled = false;
+                return;
+            }
+            if (word.length > 20) {
+                showToast("הביטוי חייב להכיל עד 20 תווים!", 'error');
+                btn.innerText = "שמור שאלה"; btn.disabled = false;
+                return;
+            }
+
+            await window.addDoc(window.collection(window.db, "hangmanWords"), { 
+                word: word, 
+                category: category,
+                lang: state.currentLang.code,
+                addedAt: window.serverTimestamp()
+            });
+            showToast("✅ מילת ההגמן נשמרה בהצלחה!", 'success', 3500);
+            navigate('MENU');
+            return;
+
         } else if (qType === 'match_pair') {
             const leftInputs = Array.from(document.querySelectorAll('.match-left')).map(i => i.value.trim());
             const rightInputs = Array.from(document.querySelectorAll('.match-right')).map(i => i.value.trim());
-            
+
             const pairs = [];
             for (let i = 0; i < leftInputs.length; i++) {
                 if (leftInputs[i] && rightInputs[i]) {
@@ -1336,8 +1356,8 @@ function shuffleArray(array) {
 }
 
 window.setLang = (code) => { state.currentLang = Object.values(Lang).find(l => l.code === code); render(); };
-window.navigate = (screen) => { 
-    if(window.clearQuestionTimer) window.clearQuestionTimer();
+window.navigate = (screen) => {
+    if (window.clearQuestionTimer) window.clearQuestionTimer();
 
     // Prevent race condition: if everyone is already finished, go straight to results
     if (screen === 'MULTIPLAYER_WAIT' && state.multiplayerPlayers) {
@@ -1347,8 +1367,8 @@ window.navigate = (screen) => {
         }
     }
 
-    state.currentScreen = screen; 
-    render(); 
+    state.currentScreen = screen;
+    render();
 };
 window.setMode = (mode, isMulti) => {
     state.selectedMode = mode;
@@ -1581,7 +1601,7 @@ window.checkBetAnswer = () => {
                     payload[`players.${state.myPlayerName}.finished`] = true;
                 }
                 await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
-                
+
                 if (state.energy <= 0) {
                     navigate('MULTIPLAYER_WAIT');
                 } else {
@@ -1640,16 +1660,16 @@ function renderMultiplayerMenu() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('mode_multiplayer')}</h2>
             <div class="button-group">
-                ${(state.selectedMode === 'CLIMB' || state.selectedMode === 'HANGMAN') ? 
-                  `<p class="bold color-indigo" style="font-size:18px; margin-bottom:20px;">מצב זה מוגבל ל-2 שחקנים</p>` :
-                  `<label class="bold color-indigo" style="font-size:18px;">מספר שחקנים מקסימלי:</label>
+                ${(state.selectedMode === 'CLIMB' || state.selectedMode === 'HANGMAN') ?
+            `<p class="bold color-indigo" style="font-size:18px; margin-bottom:20px;">מצב זה מוגבל ל-2 שחקנים</p>` :
+            `<label class="bold color-indigo" style="font-size:18px;">מספר שחקנים מקסימלי:</label>
                    <select id="maxPlayersInput" class="neo-input" style="margin-bottom: 15px; font-weight: bold; background-color: var(--white); font-size:18px; text-align:center;">
                        <option value="2">2 שחקנים</option>
                        <option value="3">3 שחקנים</option>
                        <option value="4">4 שחקנים</option>
                        <option value="5">5 שחקנים</option>
                    </select>`
-                }
+        }
                 <button class="neo-button bg-coral" style="height:60px;" onclick="createMultiplayerRoom()">צור חדר (מארח)</button>
                 <div class="spacer-lg"></div>
                 <input type="text" id="joinCodeInput" class="neo-input" placeholder="הכנס קוד חדר" style="text-align: center; font-size: 24px; text-transform: uppercase; margin-bottom: 12px;">
@@ -1889,7 +1909,7 @@ function listenToRoom(code) {
                     }
 
                     updates[`answers`] = {};
-                    
+
                     if (data.currentQuestionIndex >= data.playlist.length - 1) {
                         Object.keys(data.players).forEach(p => {
                             updates[`players.${p}.finished`] = true;
@@ -2049,11 +2069,11 @@ function renderMultiplayerResults() {
 function buildHangmanSVG(wrongCount, small = false) {
     const maxW = small ? '130px' : '190px';
     const parts = {
-        head:     wrongCount >= 1,
-        body:     wrongCount >= 2,
-        leftArm:  wrongCount >= 3,
+        head: wrongCount >= 1,
+        body: wrongCount >= 2,
+        leftArm: wrongCount >= 3,
         rightArm: wrongCount >= 4,
-        leftLeg:  wrongCount >= 5,
+        leftLeg: wrongCount >= 5,
         rightLeg: wrongCount >= 6,
     };
     return `
@@ -2081,11 +2101,11 @@ function buildHangmanSVG(wrongCount, small = false) {
 
 function getHangmanKeyboard() {
     switch (state.currentLang.code) {
-        case 'he': return ['\u05d0','\u05d1','\u05d2','\u05d3','\u05d4','\u05d5','\u05d6','\u05d7','\u05d8','\u05d9','\u05db','\u05dc','\u05de','\u05e0','\u05e1','\u05e2','\u05e4','\u05e6','\u05e7','\u05e8','\u05e9','\u05ea','\u05da','\u05dd','\u05df','\u05e3','\u05e5'];
+        case 'he': return ['\u05d0', '\u05d1', '\u05d2', '\u05d3', '\u05d4', '\u05d5', '\u05d6', '\u05d7', '\u05d8', '\u05d9', '\u05db', '\u05dc', '\u05de', '\u05e0', '\u05e1', '\u05e2', '\u05e4', '\u05e6', '\u05e7', '\u05e8', '\u05e9', '\u05ea', '\u05da', '\u05dd', '\u05df', '\u05e3', '\u05e5'];
         case 'en': return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-        case 'ar': return ['\u0627','\u0628','\u062a','\u062b','\u062c','\u062d','\u062e','\u062f','\u0630','\u0631','\u0632','\u0633','\u0634','\u0635','\u0636','\u0637','\u0638','\u0639','\u063a','\u0641','\u0642','\u0643','\u0644','\u0645','\u0646','\u0647','\u0648','\u064a'];
+        case 'ar': return ['\u0627', '\u0628', '\u062a', '\u062b', '\u062c', '\u062d', '\u062e', '\u062f', '\u0630', '\u0631', '\u0632', '\u0633', '\u0634', '\u0635', '\u0636', '\u0637', '\u0638', '\u0639', '\u063a', '\u0641', '\u0642', '\u0643', '\u0644', '\u0645', '\u0646', '\u0647', '\u0648', '\u064a'];
         case 'ru': return '\u0410\u0411\u0412\u0413\u0414\u0415\u0401\u0416\u0417\u0418\u0419\u041a\u041b\u041c\u041d\u041e\u041f\u0420\u0421\u0422\u0423\u0424\u0425\u0426\u0427\u0428\u0429\u042a\u042b\u042c\u042d\u042e\u042f'.split('');
-        default:   return ['\u05d0','\u05d1','\u05d2','\u05d3','\u05d4','\u05d5','\u05d6','\u05d7','\u05d8','\u05d9','\u05db','\u05dc','\u05de','\u05e0','\u05e1','\u05e2','\u05e4','\u05e6','\u05e7','\u05e8','\u05e9','\u05ea','\u05da','\u05dd','\u05df','\u05e3','\u05e5'];
+        default: return ['\u05d0', '\u05d1', '\u05d2', '\u05d3', '\u05d4', '\u05d5', '\u05d6', '\u05d7', '\u05d8', '\u05d9', '\u05db', '\u05dc', '\u05de', '\u05e0', '\u05e1', '\u05e2', '\u05e4', '\u05e6', '\u05e7', '\u05e8', '\u05e9', '\u05ea', '\u05da', '\u05dd', '\u05df', '\u05e3', '\u05e5'];
     }
 }
 
@@ -2093,7 +2113,7 @@ function renderHangmanKeyboard() {
     const letters = getHangmanKeyboard();
     return letters.map(letter => {
         const guessed = state.hangmanGuessed.includes(letter);
-        const wrong   = state.hangmanWrong.includes(letter);
+        const wrong = state.hangmanWrong.includes(letter);
         let cls = 'hangman-key';
         if (guessed) cls += ' correct';
         else if (wrong) cls += ' wrong';
@@ -2103,8 +2123,8 @@ function renderHangmanKeyboard() {
 }
 
 function renderHangman() {
-    const word      = state.hangmanWord;
-    const maxWrong  = 6;
+    const word = state.hangmanWord;
+    const maxWrong = 6;
     const wrongCount = state.hangmanWrong.length;
 
     const wordDisplay = word.map(ch => {
@@ -2118,7 +2138,7 @@ function renderHangman() {
     let overlayHtml = '';
     if (state.hangmanDone) {
         const emoji = state.hangmanWon ? '🎉' : '💀';
-        const msg   = state.hangmanWon ? 'ניצחת!' : 'הפסדת!';
+        const msg = state.hangmanWon ? 'ניצחת!' : 'הפסדת!';
         const wordReveal = state.hangmanWon ? '' :
             `<p style="font-size:19px; margin:10px 0; font-weight:700;">המילה הייתה: <span style="color:var(--accent-teal); letter-spacing:2px;">${word.join('')}</span></p>`;
         overlayHtml = `
@@ -2137,12 +2157,11 @@ function renderHangman() {
 
     return `
         <div class="screen-wrapper" style="position:relative; padding-bottom:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <button class="neo-button bg-Back" style="width:auto; padding:8px 16px; margin-bottom:0;" onclick="navigate('MENU')">חזור</button>
+            <div style="display:flex; justify-content:center; align-items:center; margin-bottom:12px;">
                 <div style="display:flex; gap:6px;">
-                    ${Array.from({length:maxWrong},(_, i) =>
-                        `<span style="width:14px;height:14px;border-radius:50%;background:${i < wrongCount ? '#e53935' : 'rgba(33,2,110,0.15)'};display:inline-block;"></span>`
-                    ).join('')}
+                    ${Array.from({ length: maxWrong }, (_, i) =>
+        `<span style="width:14px;height:14px;border-radius:50%;background:${i < wrongCount ? '#e53935' : 'rgba(33,2,110,0.15)'};display:inline-block;"></span>`
+    ).join('')}
                 </div>
             </div>
 
@@ -2159,6 +2178,10 @@ function renderHangman() {
             </div>` : '<div style="height:42px;"></div>'}
 
             <div class="hangman-keyboard">${renderHangmanKeyboard()}</div>
+            
+            <div style="margin-top:auto; width:100%; padding-top:20px;">
+                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block;" onclick="navigate('MENU')">חזור</button>
+            </div>
 
             ${overlayHtml}
         </div>
@@ -2166,9 +2189,9 @@ function renderHangman() {
 }
 
 function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
-    const maxWrong   = 6;
-    const oppWrong   = state.hangmanOpponentWrongCount || 0;
-    const oppDone    = state.hangmanOpponentDone;
+    const maxWrong = 6;
+    const oppWrong = state.hangmanOpponentWrongCount || 0;
+    const oppDone = state.hangmanOpponentDone;
 
     const myPanel = `
         <div class="hangman-panel">
@@ -2180,11 +2203,11 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
                 ${state.hangmanWrong.map(l => `<span class="hangman-wrong-letter">${l}</span>`).join('')}
             </div>` : ''}
             ${state.hangmanDone ?
-                `<div style="text-align:center; font-weight:800; font-size:12px; color:${state.hangmanWon ? 'var(--accent-teal)':'#e53935'}; margin-top:6px; line-height:1.4;">
+            `<div style="text-align:center; font-weight:800; font-size:12px; color:${state.hangmanWon ? 'var(--accent-teal)' : '#e53935'}; margin-top:6px; line-height:1.4;">
                     ${state.hangmanWon ? '✅ ניצחת!<br>ממתין ליריב...' : '❌ הפסדת.<br>ממתין ליריב...'}
                 </div>` :
-                `<div class="hangman-keyboard small">${renderHangmanKeyboard()}</div>`
-            }
+            `<div class="hangman-keyboard small">${renderHangmanKeyboard()}</div>`
+        }
         </div>`;
 
     const oppPanel = `
@@ -2195,14 +2218,13 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
                 <div style="font-size:11px; opacity:0.5; margin-bottom:6px;">מילה מוסתרת</div>
                 <div style="letter-spacing:5px; font-size:15px; font-weight:800; color:var(--app-text); opacity:0.4;">? ? ?</div>
                 <div style="font-size:12px; font-weight:700; margin-top:10px; color:var(--app-text);">שגיאות: ${oppWrong}/${maxWrong}</div>
-                ${oppDone ? `<div style="font-size:12px; color:${state.hangmanOpponentWon ? 'var(--accent-teal)':'#e53935'}; font-weight:800; margin-top:4px;">${state.hangmanOpponentWon ? '✅ ניצח' : '❌ הפסיד'}</div>` : ''}
+                ${oppDone ? `<div style="font-size:12px; color:${state.hangmanOpponentWon ? 'var(--accent-teal)' : '#e53935'}; font-weight:800; margin-top:4px;">${state.hangmanOpponentWon ? '✅ ניצח' : '❌ הפסיד'}</div>` : ''}
             </div>
         </div>`;
 
     return `
         <div class="screen-wrapper" style="padding:12px 8px; overflow:hidden;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <button class="neo-button bg-Back" style="width:auto; padding:6px 12px; margin-bottom:0; font-size:13px;" onclick="navigate('MENU')">חזור</button>
+            <div style="display:flex; justify-content:center; align-items:center; margin-bottom:10px;">
                 <span style="font-weight:800; font-size:12px; opacity:0.7;">שגיאות שלי: ${myWrongCount}/${maxWrong} | יריב: ${oppWrong}/${maxWrong}</span>
             </div>
             <div class="hangman-split">
@@ -2210,30 +2232,33 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
                 <div class="hangman-divider"></div>
                 ${oppPanel}
             </div>
+            <div style="margin-top:auto; width:100%; padding-top:20px;">
+                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block; font-size:13px;" onclick="navigate('MENU')">חזור</button>
+            </div>
         </div>
     `;
 }
 
 function renderHangmanResults() {
-    const myWord     = state.hangmanWord.join('');
-    const oppWord    = state.hangmanOpponentWord || '';
-    const myWon      = state.hangmanWon;
-    const oppWon     = state.hangmanOpponentWon;
-    const myWrong    = state.hangmanWrong.length;
-    const oppWrong   = state.hangmanOpponentWrongCount;
+    const myWord = state.hangmanWord.join('');
+    const oppWord = state.hangmanOpponentWord || '';
+    const myWon = state.hangmanWon;
+    const oppWon = state.hangmanOpponentWon;
+    const myWrong = state.hangmanWrong.length;
+    const oppWrong = state.hangmanOpponentWrongCount;
 
     let resultTitle = '', resultColor = '';
-    if (myWon && !oppWon)        { resultTitle = '🏆 ניצחת!';                  resultColor = 'var(--accent-teal)'; }
-    else if (!myWon && oppWon)   { resultTitle = '💀 הפסדת!';                  resultColor = '#e53935'; }
-    else if (myWon && oppWon)    {
-        if (myWrong < oppWrong)  { resultTitle = '🏆 ניצחת! (פחות שגיאות)';   resultColor = 'var(--accent-teal)'; }
+    if (myWon && !oppWon) { resultTitle = '🏆 ניצחת!'; resultColor = 'var(--accent-teal)'; }
+    else if (!myWon && oppWon) { resultTitle = '💀 הפסדת!'; resultColor = '#e53935'; }
+    else if (myWon && oppWon) {
+        if (myWrong < oppWrong) { resultTitle = '🏆 ניצחת! (פחות שגיאות)'; resultColor = 'var(--accent-teal)'; }
         else if (myWrong > oppWrong) { resultTitle = '😅 הפסדת! (יותר שגיאות)'; resultColor = '#e53935'; }
-        else                     { resultTitle = '🤝 תיקו!';                   resultColor = 'var(--app-text)'; }
+        else { resultTitle = '🤝 תיקו!'; resultColor = 'var(--app-text)'; }
     }
-    else                         { resultTitle = '💀 שניכם הפסדתם!';           resultColor = 'var(--app-text)'; }
+    else { resultTitle = '💀 שניכם הפסדתם!'; resultColor = 'var(--app-text)'; }
 
-    const myWrongLetters  = state.hangmanWrong.join(', ')                      || '-';
-    const oppWrongLetters = (state.hangmanOpponentWrong || []).join(', ')      || '-';
+    const myWrongLetters = state.hangmanWrong.join(', ') || '-';
+    const oppWrongLetters = (state.hangmanOpponentWrong || []).join(', ') || '-';
 
     return `
         <div class="screen-wrapper" style="align-items:center; padding-bottom:40px;">
@@ -2314,18 +2339,18 @@ function renderAddHangmanWord() {
 }
 
 window.saveHangmanWord = async () => {
-    const wordInput     = document.getElementById('hangmanWordInput');
+    const wordInput = document.getElementById('hangmanWordInput');
     const categoryInput = document.getElementById('hangmanCategoryInput');
-    const btn           = document.getElementById('saveHangmanWordBtn');
+    const btn = document.getElementById('saveHangmanWordBtn');
 
-    const word     = wordInput?.value.trim().toUpperCase();
+    const word = wordInput?.value.trim().toUpperCase();
     const category = categoryInput?.value.trim() || 'כללי';
 
     if (!word || word.length < 2) {
         showToast('אנא הזן מילה של לפחות 2 אותיות!', 'error');
         return;
     }
-    if (word.includes(' ') && word.replace(/ /g,'').length < 2) {
+    if (word.includes(' ') && word.replace(/ /g, '').length < 2) {
         showToast('המילה קצרה מדי!', 'error');
         return;
     }
@@ -2341,7 +2366,7 @@ window.saveHangmanWord = async () => {
             addedAt: window.serverTimestamp()
         });
         showToast('✅ המילה נשמרה בהצלחה!', 'success');
-        if (wordInput)     wordInput.value     = '';
+        if (wordInput) wordInput.value = '';
         if (categoryInput) categoryInput.value = '';
         render(); // refresh chip list
     } catch (e) {
@@ -2366,18 +2391,18 @@ function startHangmanSingle() {
 
 function initHangmanState(wordList) {
     const entry = wordList[Math.floor(Math.random() * wordList.length)];
-    const word  = (entry.word || '').toUpperCase();
-    state.hangmanWord              = word.split('');
-    state.hangmanGuessed           = [];
-    state.hangmanWrong             = [];
-    state.hangmanDone              = false;
-    state.hangmanWon               = false;
+    const word = (entry.word || '').toUpperCase();
+    state.hangmanWord = word.split('');
+    state.hangmanGuessed = [];
+    state.hangmanWrong = [];
+    state.hangmanDone = false;
+    state.hangmanWon = false;
     state.hangmanOpponentWrongCount = 0;
-    state.hangmanOpponentDone      = false;
-    state.hangmanOpponentWon       = false;
-    state.hangmanOpponentWord      = '';
-    state.hangmanOpponentWrong     = [];
-    state.hangmanOpponentGuessed   = [];
+    state.hangmanOpponentDone = false;
+    state.hangmanOpponentWon = false;
+    state.hangmanOpponentWord = '';
+    state.hangmanOpponentWrong = [];
+    state.hangmanOpponentGuessed = [];
 }
 
 function guessLetter(letter) {
@@ -2390,23 +2415,23 @@ function guessLetter(letter) {
         state.hangmanWrong.push(letter);
     }
 
-    const won  = state.hangmanWord.length > 0 &&
-                 state.hangmanWord.every(ch => ch === ' ' || state.hangmanGuessed.includes(ch));
+    const won = state.hangmanWord.length > 0 &&
+        state.hangmanWord.every(ch => ch === ' ' || state.hangmanGuessed.includes(ch));
     const lost = state.hangmanWrong.length >= 6;
 
     if (won || lost) {
         state.hangmanDone = true;
-        state.hangmanWon  = won;
+        state.hangmanWon = won;
 
         if (state.isMultiplayer) {
             window.updateDoc(window.doc(window.db, 'rooms', state.roomId), {
                 [`hangmanState.${state.myPlayerName}`]: {
-                    wrongCount : state.hangmanWrong.length,
-                    done       : true,
-                    won        : state.hangmanWon,
-                    word       : state.hangmanWord.join(''),
-                    guessed    : state.hangmanGuessed,
-                    wrong      : state.hangmanWrong
+                    wrongCount: state.hangmanWrong.length,
+                    done: true,
+                    won: state.hangmanWon,
+                    word: state.hangmanWord.join(''),
+                    guessed: state.hangmanGuessed,
+                    wrong: state.hangmanWrong
                 },
                 [`players.${state.myPlayerName}.finished`]: true
             }).catch(e => console.error(e));
