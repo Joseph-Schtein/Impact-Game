@@ -70,7 +70,21 @@ const state = {
     timerInterval: null,
     
     // Multiplayer sync
-    isWaitingForOthers: false
+    isWaitingForOthers: false,
+
+    // Hangman State
+    hangmanWord: [],
+    hangmanGuessed: [],
+    hangmanWrong: [],
+    hangmanDone: false,
+    hangmanWon: false,
+    hangmanOpponentWrongCount: 0,
+    hangmanOpponentDone: false,
+    hangmanOpponentWon: false,
+    hangmanOpponentWord: '',
+    hangmanOpponentWrong: [],
+    hangmanOpponentGuessed: [],
+    hangmanWordBank: []
 };
 
 const categoryList = ["אנימה", "תרבות פופ", "מושגים"];
@@ -141,6 +155,9 @@ function render() {
         case 'MULTIPLAYER_LOBBY': html = renderMultiplayerLobby(); break;
         case 'MULTIPLAYER_WAIT': html = renderMultiplayerWaitScreen(); break;
         case 'MULTIPLAYER_RESULTS': html = renderMultiplayerResults(); break;
+        case 'PLAYING_HANGMAN': html = renderHangman(); break;
+        case 'HANGMAN_RESULTS': html = renderHangmanResults(); break;
+        case 'ADD_HANGMAN_WORD': html = renderAddHangmanWord(); break;
     }
     appContainer.innerHTML = html;
 }
@@ -209,6 +226,7 @@ function renderMenu() {
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('single_btn')}</button>
                 <button class="neo-button bg-Back" style="height:60px; margin-top: 12px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('multi_btn')}</button>
                 <button class="neo-button bg-coral" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
+                <button class="neo-button bg-teal" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_HANGMAN_WORD')">➕ הוסף מילת הגמן</button>
             </div>
         </div>`;
 }
@@ -222,6 +240,7 @@ function renderModeSelect() {
                 <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', false)"> ${getString('mode_climb')}</button>
                 <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', false)"> ${getString('mode_bet')}</button>
                 <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: var(--vibrant-indigo); color: var(--white);" onclick="setMode('MATCH_PAIRS', false)">התאמת זוגות</button>
+                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', false)">🎯 הגמן</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
@@ -237,6 +256,7 @@ function renderModeSelectMulti() {
                 <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', true)"> ${getString('mode_climb')}</button>
                 <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', true)"> ${getString('mode_bet')}</button>
                 <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: var(--vibrant-indigo); color: var(--white);" onclick="setMode('MATCH_PAIRS', true)">התאמת זוגות</button>
+                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', true)">🎯 הגמן</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
@@ -1292,6 +1312,17 @@ function initDB() {
         console.error("Firebase connection error:", error);
         showToast("שגיאה בהתחברות ל-Firebase: " + error.message, 'error', 6000);
     });
+
+    // Listen to hangman words collection
+    window.onSnapshot(window.collection(window.db, "hangmanWords"), (snapshot) => {
+        state.hangmanWordBank = [];
+        snapshot.forEach((doc) => {
+            state.hangmanWordBank.push(doc.data());
+        });
+        console.log("Loaded hangman words from Firebase:", state.hangmanWordBank.length);
+    }, (error) => {
+        console.error("Firebase hangmanWords error:", error);
+    });
 }
 
 // --- ACTIONS ---
@@ -1326,6 +1357,8 @@ window.setMode = (mode, isMulti) => {
         navigate('MULTIPLAYER_MENU');
     } else if (mode === 'BET_BURN') {
         navigate('BET_MENU');
+    } else if (mode === 'HANGMAN') {
+        startHangmanSingle();
     } else {
         navigate('SUBJECTS');
     }
@@ -1607,8 +1640,8 @@ function renderMultiplayerMenu() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('mode_multiplayer')}</h2>
             <div class="button-group">
-                ${state.selectedMode === 'CLIMB' ? 
-                  `<p class="bold color-indigo" style="font-size:18px; margin-bottom:20px;">מצב הטיפוס מוגבל ל-2 שחקנים</p>` :
+                ${(state.selectedMode === 'CLIMB' || state.selectedMode === 'HANGMAN') ? 
+                  `<p class="bold color-indigo" style="font-size:18px; margin-bottom:20px;">מצב זה מוגבל ל-2 שחקנים</p>` :
                   `<label class="bold color-indigo" style="font-size:18px;">מספר שחקנים מקסימלי:</label>
                    <select id="maxPlayersInput" class="neo-input" style="margin-bottom: 15px; font-weight: bold; background-color: var(--white); font-size:18px; text-align:center;">
                        <option value="2">2 שחקנים</option>
@@ -1636,7 +1669,7 @@ window.createMultiplayerRoom = async () => {
         localStorage.setItem('otakuPlayerName', name);
     }
 
-    const maxPlayers = state.selectedMode === 'CLIMB' ? 2 : (parseInt(document.getElementById('maxPlayersInput')?.value) || 2);
+    const maxPlayers = (state.selectedMode === 'CLIMB' || state.selectedMode === 'HANGMAN') ? 2 : (parseInt(document.getElementById('maxPlayersInput')?.value) || 2);
     state.maxPlayers = maxPlayers;
 
     // Generate 4-char code
@@ -1649,8 +1682,12 @@ window.createMultiplayerRoom = async () => {
         [name]: { score: 0, finished: false, isHost: true }
     };
 
-    // Shuffle questions - pull 10 random questions from the entire bank
-    const shuffled = [...state.questionBank].sort(() => Math.random() - 0.5).slice(0, 10).map(q => {
+    // Shuffle questions - pull 10 random questions from the entire bank (not used for HANGMAN)
+    if (state.selectedMode === 'HANGMAN' && state.hangmanWordBank.length === 0) {
+        showToast("אין מילים להגמן! הוסף מילים תחילה.", 'error', 4000);
+        return;
+    }
+    const shuffled = state.selectedMode === 'HANGMAN' ? [] : [...state.questionBank].sort(() => Math.random() - 0.5).slice(0, 10).map(q => {
         const clonedQ = { ...q, optionsMap: {} };
         for (let lang in q.optionsMap) {
             clonedQ.optionsMap[lang] = shuffleArray(q.optionsMap[lang]);
@@ -1667,7 +1704,8 @@ window.createMultiplayerRoom = async () => {
             playlist: shuffled,
             gameMode: state.selectedMode,
             currentQuestionIndex: 0,
-            answers: {}
+            answers: {},
+            hangmanState: {}
         });
 
         listenToRoom(code);
@@ -1743,6 +1781,12 @@ window.joinMultiplayerRoom = async () => {
                 navigate('PLAYING_BET');
             } else if (state.selectedMode === 'CLIMB') {
                 navigate('PLAYING_CLIMB');
+            } else if (state.selectedMode === 'HANGMAN') {
+                initHangmanState(state.hangmanWordBank);
+                window.updateDoc(roomRef, {
+                    [`hangmanState.${finalName}`]: { wrongCount: 0, done: false }
+                }).catch(e => console.error(e));
+                navigate('PLAYING_HANGMAN');
             } else {
                 navigate('PLAYING_CLASSIC');
             }
@@ -1789,6 +1833,12 @@ function listenToRoom(code) {
                 navigate('PLAYING_BET');
             } else if (state.selectedMode === 'CLIMB') {
                 navigate('PLAYING_CLIMB');
+            } else if (state.selectedMode === 'HANGMAN') {
+                initHangmanState(state.hangmanWordBank);
+                window.updateDoc(window.doc(window.db, "rooms", code), {
+                    [`hangmanState.${state.myPlayerName}`]: { wrongCount: 0, done: false }
+                }).catch(e => console.error(e));
+                navigate('PLAYING_HANGMAN');
             } else {
                 navigate('PLAYING_CLASSIC');
             }
@@ -1852,15 +1902,38 @@ function listenToRoom(code) {
             }
         }
 
-        const activeScreens = ['MULTIPLAYER_WAIT', 'PLAYING_CLASSIC', 'PLAYING_CLIMB', 'PLAYING_BET', 'CLIMB_RESULT'];
+        const activeScreens = ['MULTIPLAYER_WAIT', 'PLAYING_CLASSIC', 'PLAYING_CLIMB', 'PLAYING_BET', 'CLIMB_RESULT', 'PLAYING_HANGMAN'];
         if (activeScreens.includes(state.currentScreen)) {
-            const allFinished = Object.keys(state.multiplayerPlayers).length > 0 && Object.values(state.multiplayerPlayers).every(p => p.finished);
-            if (allFinished) {
-                if (state.currentScreen !== 'MULTIPLAYER_RESULTS') {
-                    navigate('MULTIPLAYER_RESULTS');
+            if (state.selectedMode === 'HANGMAN') {
+                // Sync opponent hangman state from Firestore
+                const hangmanState = data.hangmanState || {};
+                const oppName = Object.keys(data.players || {}).find(n => n !== state.myPlayerName);
+                if (oppName && hangmanState[oppName]) {
+                    const opp = hangmanState[oppName];
+                    state.hangmanOpponentWrongCount = opp.wrongCount || 0;
+                    state.hangmanOpponentDone = opp.done || false;
+                    state.hangmanOpponentWon = opp.won || false;
+                    if (opp.done) {
+                        state.hangmanOpponentWord = opp.word || '';
+                        state.hangmanOpponentWrong = opp.wrong || [];
+                        state.hangmanOpponentGuessed = opp.guessed || [];
+                    }
                 }
-            } else if (state.currentScreen === 'MULTIPLAYER_WAIT') {
-                render(); // update leaderboard live
+                // Both done → reveal screen
+                if (state.hangmanDone && state.hangmanOpponentDone && state.currentScreen === 'PLAYING_HANGMAN') {
+                    navigate('HANGMAN_RESULTS');
+                } else if (state.currentScreen === 'PLAYING_HANGMAN') {
+                    render();
+                }
+            } else {
+                const allFinished = Object.keys(state.multiplayerPlayers).length > 0 && Object.values(state.multiplayerPlayers).every(p => p.finished);
+                if (allFinished) {
+                    if (state.currentScreen !== 'MULTIPLAYER_RESULTS') {
+                        navigate('MULTIPLAYER_RESULTS');
+                    }
+                } else if (state.currentScreen === 'MULTIPLAYER_WAIT') {
+                    render(); // update leaderboard live
+                }
             }
         }
 
@@ -1967,4 +2040,383 @@ function renderMultiplayerResults() {
             <button class="neo-button bg-Back" style="height:60px; max-width:200px;" onclick="navigate('MENU')">${getString('continue_btn')}</button>
         </div>
     `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// --- HANGMAN GAME MODE ---
+// ══════════════════════════════════════════════════════════════
+
+function buildHangmanSVG(wrongCount, small = false) {
+    const maxW = small ? '130px' : '190px';
+    const parts = {
+        head:     wrongCount >= 1,
+        body:     wrongCount >= 2,
+        leftArm:  wrongCount >= 3,
+        rightArm: wrongCount >= 4,
+        leftLeg:  wrongCount >= 5,
+        rightLeg: wrongCount >= 6,
+    };
+    return `
+    <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg"
+         style="width:100%; max-width:${maxW}; display:block; margin:0 auto; filter:drop-shadow(0 4px 8px rgba(33,2,110,0.12));">
+        <!-- Gallows base -->
+        <line x1="10" y1="190" x2="150" y2="190" stroke="var(--app-text)" stroke-width="5" stroke-linecap="round"/>
+        <line x1="40" y1="190" x2="40" y2="10"   stroke="var(--app-text)" stroke-width="5" stroke-linecap="round"/>
+        <line x1="40" y1="10"  x2="112" y2="10"  stroke="var(--app-text)" stroke-width="5" stroke-linecap="round"/>
+        <line x1="112" y1="10" x2="112" y2="32"  stroke="var(--app-text)" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 3"/>
+        <!-- Head -->
+        ${parts.head ? `<circle cx="112" cy="48" r="16" fill="none" stroke="#e53935" stroke-width="3.5" style="animation:hangmanPop .25s ease"/>` : ''}
+        <!-- Body -->
+        ${parts.body ? `<line x1="112" y1="64" x2="112" y2="118" stroke="#e53935" stroke-width="3.5" stroke-linecap="round"/>` : ''}
+        <!-- Left Arm -->
+        ${parts.leftArm ? `<line x1="112" y1="80" x2="82" y2="104" stroke="#e53935" stroke-width="3.5" stroke-linecap="round"/>` : ''}
+        <!-- Right Arm -->
+        ${parts.rightArm ? `<line x1="112" y1="80" x2="142" y2="104" stroke="#e53935" stroke-width="3.5" stroke-linecap="round"/>` : ''}
+        <!-- Left Leg -->
+        ${parts.leftLeg ? `<line x1="112" y1="118" x2="84" y2="152" stroke="#e53935" stroke-width="3.5" stroke-linecap="round"/>` : ''}
+        <!-- Right Leg -->
+        ${parts.rightLeg ? `<line x1="112" y1="118" x2="140" y2="152" stroke="#e53935" stroke-width="3.5" stroke-linecap="round"/>` : ''}
+    </svg>`;
+}
+
+function getHangmanKeyboard() {
+    switch (state.currentLang.code) {
+        case 'he': return ['\u05d0','\u05d1','\u05d2','\u05d3','\u05d4','\u05d5','\u05d6','\u05d7','\u05d8','\u05d9','\u05db','\u05dc','\u05de','\u05e0','\u05e1','\u05e2','\u05e4','\u05e6','\u05e7','\u05e8','\u05e9','\u05ea','\u05da','\u05dd','\u05df','\u05e3','\u05e5'];
+        case 'en': return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        case 'ar': return ['\u0627','\u0628','\u062a','\u062b','\u062c','\u062d','\u062e','\u062f','\u0630','\u0631','\u0632','\u0633','\u0634','\u0635','\u0636','\u0637','\u0638','\u0639','\u063a','\u0641','\u0642','\u0643','\u0644','\u0645','\u0646','\u0647','\u0648','\u064a'];
+        case 'ru': return '\u0410\u0411\u0412\u0413\u0414\u0415\u0401\u0416\u0417\u0418\u0419\u041a\u041b\u041c\u041d\u041e\u041f\u0420\u0421\u0422\u0423\u0424\u0425\u0426\u0427\u0428\u0429\u042a\u042b\u042c\u042d\u042e\u042f'.split('');
+        default:   return ['\u05d0','\u05d1','\u05d2','\u05d3','\u05d4','\u05d5','\u05d6','\u05d7','\u05d8','\u05d9','\u05db','\u05dc','\u05de','\u05e0','\u05e1','\u05e2','\u05e4','\u05e6','\u05e7','\u05e8','\u05e9','\u05ea','\u05da','\u05dd','\u05df','\u05e3','\u05e5'];
+    }
+}
+
+function renderHangmanKeyboard() {
+    const letters = getHangmanKeyboard();
+    return letters.map(letter => {
+        const guessed = state.hangmanGuessed.includes(letter);
+        const wrong   = state.hangmanWrong.includes(letter);
+        let cls = 'hangman-key';
+        if (guessed) cls += ' correct';
+        else if (wrong) cls += ' wrong';
+        const disabled = (guessed || wrong || state.hangmanDone) ? 'disabled' : '';
+        return `<button class="${cls}" ${disabled} onclick="guessLetter('${letter}')">${letter}</button>`;
+    }).join('');
+}
+
+function renderHangman() {
+    const word      = state.hangmanWord;
+    const maxWrong  = 6;
+    const wrongCount = state.hangmanWrong.length;
+
+    const wordDisplay = word.map(ch => {
+        if (ch === ' ') return `<span class="hangman-letter-box space">&nbsp;</span>`;
+        const revealed = state.hangmanGuessed.includes(ch) || state.hangmanDone;
+        return `<span class="hangman-letter-box${revealed ? ' revealed' : ''}">${revealed ? ch : ''}</span>`;
+    }).join('');
+
+    if (state.isMultiplayer) return renderHangmanMultiplayer(wordDisplay, wrongCount);
+
+    let overlayHtml = '';
+    if (state.hangmanDone) {
+        const emoji = state.hangmanWon ? '🎉' : '💀';
+        const msg   = state.hangmanWon ? 'ניצחת!' : 'הפסדת!';
+        const wordReveal = state.hangmanWon ? '' :
+            `<p style="font-size:19px; margin:10px 0; font-weight:700;">המילה הייתה: <span style="color:var(--accent-teal); letter-spacing:2px;">${word.join('')}</span></p>`;
+        overlayHtml = `
+        <div class="hangman-overlay">
+            <div class="hangman-overlay-box">
+                <div style="font-size:60px; margin-bottom:8px;">${emoji}</div>
+                <h2 style="font-size:30px; margin-bottom:10px; color:var(--app-text);">${msg}</h2>
+                ${wordReveal}
+                <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px; width:100%;">
+                    <button class="neo-button bg-coral" style="max-width:100%;" onclick="startHangmanSingle()">שחק שוב</button>
+                    <button class="neo-button bg-Back" style="max-width:100%;" onclick="navigate('MENU')">תפריט ראשי</button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    return `
+        <div class="screen-wrapper" style="position:relative; padding-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <button class="neo-button bg-Back" style="width:auto; padding:8px 16px; margin-bottom:0;" onclick="navigate('MENU')">חזור</button>
+                <div style="display:flex; gap:6px;">
+                    ${Array.from({length:maxWrong},(_, i) =>
+                        `<span style="width:14px;height:14px;border-radius:50%;background:${i < wrongCount ? '#e53935' : 'rgba(33,2,110,0.15)'};display:inline-block;"></span>`
+                    ).join('')}
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:center; margin-bottom:8px;">
+                ${buildHangmanSVG(wrongCount)}
+            </div>
+
+            <div class="hangman-word">${wordDisplay}</div>
+
+            ${state.hangmanWrong.length > 0 ? `
+            <div class="hangman-wrong-list">
+                <span class="bold" style="margin-inline-end:8px; font-size:13px;">שגויים:</span>
+                ${state.hangmanWrong.map(l => `<span class="hangman-wrong-letter">${l}</span>`).join('')}
+            </div>` : '<div style="height:42px;"></div>'}
+
+            <div class="hangman-keyboard">${renderHangmanKeyboard()}</div>
+
+            ${overlayHtml}
+        </div>
+    `;
+}
+
+function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
+    const maxWrong   = 6;
+    const oppWrong   = state.hangmanOpponentWrongCount || 0;
+    const oppDone    = state.hangmanOpponentDone;
+
+    const myPanel = `
+        <div class="hangman-panel">
+            <div class="hangman-panel-title">אתה ${state.hangmanDone ? (state.hangmanWon ? '✅' : '❌') : '⏳'}</div>
+            ${buildHangmanSVG(myWrongCount, true)}
+            <div class="hangman-word small">${myWordDisplay}</div>
+            ${state.hangmanWrong.length > 0 ? `
+            <div class="hangman-wrong-list small">
+                ${state.hangmanWrong.map(l => `<span class="hangman-wrong-letter">${l}</span>`).join('')}
+            </div>` : ''}
+            ${state.hangmanDone ?
+                `<div style="text-align:center; font-weight:800; font-size:12px; color:${state.hangmanWon ? 'var(--accent-teal)':'#e53935'}; margin-top:6px; line-height:1.4;">
+                    ${state.hangmanWon ? '✅ ניצחת!<br>ממתין ליריב...' : '❌ הפסדת.<br>ממתין ליריב...'}
+                </div>` :
+                `<div class="hangman-keyboard small">${renderHangmanKeyboard()}</div>`
+            }
+        </div>`;
+
+    const oppPanel = `
+        <div class="hangman-panel opponent">
+            <div class="hangman-panel-title">יריב ${oppDone ? (state.hangmanOpponentWon ? '✅' : '❌') : '⏳'}</div>
+            ${buildHangmanSVG(oppWrong, true)}
+            <div style="text-align:center; margin-top:10px; padding:0 4px;">
+                <div style="font-size:11px; opacity:0.5; margin-bottom:6px;">מילה מוסתרת</div>
+                <div style="letter-spacing:5px; font-size:15px; font-weight:800; color:var(--app-text); opacity:0.4;">? ? ?</div>
+                <div style="font-size:12px; font-weight:700; margin-top:10px; color:var(--app-text);">שגיאות: ${oppWrong}/${maxWrong}</div>
+                ${oppDone ? `<div style="font-size:12px; color:${state.hangmanOpponentWon ? 'var(--accent-teal)':'#e53935'}; font-weight:800; margin-top:4px;">${state.hangmanOpponentWon ? '✅ ניצח' : '❌ הפסיד'}</div>` : ''}
+            </div>
+        </div>`;
+
+    return `
+        <div class="screen-wrapper" style="padding:12px 8px; overflow:hidden;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <button class="neo-button bg-Back" style="width:auto; padding:6px 12px; margin-bottom:0; font-size:13px;" onclick="navigate('MENU')">חזור</button>
+                <span style="font-weight:800; font-size:12px; opacity:0.7;">שגיאות שלי: ${myWrongCount}/${maxWrong} | יריב: ${oppWrong}/${maxWrong}</span>
+            </div>
+            <div class="hangman-split">
+                ${myPanel}
+                <div class="hangman-divider"></div>
+                ${oppPanel}
+            </div>
+        </div>
+    `;
+}
+
+function renderHangmanResults() {
+    const myWord     = state.hangmanWord.join('');
+    const oppWord    = state.hangmanOpponentWord || '';
+    const myWon      = state.hangmanWon;
+    const oppWon     = state.hangmanOpponentWon;
+    const myWrong    = state.hangmanWrong.length;
+    const oppWrong   = state.hangmanOpponentWrongCount;
+
+    let resultTitle = '', resultColor = '';
+    if (myWon && !oppWon)        { resultTitle = '🏆 ניצחת!';                  resultColor = 'var(--accent-teal)'; }
+    else if (!myWon && oppWon)   { resultTitle = '💀 הפסדת!';                  resultColor = '#e53935'; }
+    else if (myWon && oppWon)    {
+        if (myWrong < oppWrong)  { resultTitle = '🏆 ניצחת! (פחות שגיאות)';   resultColor = 'var(--accent-teal)'; }
+        else if (myWrong > oppWrong) { resultTitle = '😅 הפסדת! (יותר שגיאות)'; resultColor = '#e53935'; }
+        else                     { resultTitle = '🤝 תיקו!';                   resultColor = 'var(--app-text)'; }
+    }
+    else                         { resultTitle = '💀 שניכם הפסדתם!';           resultColor = 'var(--app-text)'; }
+
+    const myWrongLetters  = state.hangmanWrong.join(', ')                      || '-';
+    const oppWrongLetters = (state.hangmanOpponentWrong || []).join(', ')      || '-';
+
+    return `
+        <div class="screen-wrapper" style="align-items:center; padding-bottom:40px;">
+            <h1 style="font-size:34px; color:${resultColor}; text-align:center; margin-bottom:20px; font-weight:800;">${resultTitle}</h1>
+
+            <div class="hangman-split" style="width:100%; max-width:560px; margin-bottom:28px; gap:8px;">
+                <div class="hangman-result-panel">
+                    <div class="hangman-panel-title">אתה</div>
+                    ${buildHangmanSVG(myWrong, true)}
+                    <div style="margin-top:10px; text-align:center;">
+                        <div style="font-size:12px; opacity:0.6;">המילה שלך</div>
+                        <div style="font-size:22px; font-weight:800; letter-spacing:3px; margin:6px 0; color:var(--app-text);">${myWord}</div>
+                        <div style="font-size:13px; color:${myWon ? 'var(--accent-teal)' : '#e53935'}; font-weight:700;">${myWon ? '✅ ניצחת' : '❌ הפסדת'}</div>
+                        <div style="font-size:12px; opacity:0.65; margin-top:5px;">שגיאות: ${myWrong}/6</div>
+                        <div style="font-size:11px; opacity:0.55; word-break:break-all;">שגויים: ${myWrongLetters}</div>
+                    </div>
+                </div>
+
+                <div class="hangman-divider" style="align-self:stretch;"></div>
+
+                <div class="hangman-result-panel">
+                    <div class="hangman-panel-title">יריב</div>
+                    ${buildHangmanSVG(oppWrong, true)}
+                    <div style="margin-top:10px; text-align:center;">
+                        <div style="font-size:12px; opacity:0.6;">המילה של היריב</div>
+                        <div style="font-size:22px; font-weight:800; letter-spacing:3px; margin:6px 0; color:var(--app-text);">${oppWord || '?'}</div>
+                        <div style="font-size:13px; color:${oppWon ? 'var(--accent-teal)' : '#e53935'}; font-weight:700;">${oppWon ? '✅ ניצח' : '❌ הפסיד'}</div>
+                        <div style="font-size:12px; opacity:0.65; margin-top:5px;">שגיאות: ${oppWrong}/6</div>
+                        <div style="font-size:11px; opacity:0.55; word-break:break-all;">שגויים: ${oppWrongLetters}</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="neo-button bg-Back" style="height:56px; max-width:220px;" onclick="navigate('MENU')">תפריט ראשי</button>
+        </div>
+    `;
+}
+
+function renderAddHangmanWord() {
+    const existingWords = (state.hangmanWordBank || []).map(w =>
+        `<span class="hangman-word-chip">${w.word}</span>`
+    ).join('');
+
+    return `
+        <div class="screen-wrapper" style="align-items:center; padding-bottom:40px;">
+            <h2 class="main-title" style="margin-top:0; font-size:32px;">🎯 מילות הגמן</h2>
+
+            <div style="width:100%; max-width:420px;">
+                <label class="bold" style="display:block; margin-bottom:8px; font-size:16px;">הוסף מילה חדשה</label>
+                <input type="text" id="hangmanWordInput" class="neo-input"
+                       placeholder="לדוגמה: נארוטו"
+                       style="text-align:center; font-size:26px; font-weight:800; letter-spacing:4px;"
+                       oninput="this.value=this.value.toUpperCase()">
+
+                <label class="bold" style="display:block; margin-bottom:8px; font-size:15px;">קטגוריה (אופציונלי)</label>
+                <input type="text" id="hangmanCategoryInput" class="neo-input" placeholder="לדוגמה: דמויות אנימה">
+
+                <button class="neo-button bg-teal" id="saveHangmanWordBtn" onclick="saveHangmanWord()" style="height:56px; font-size:17px;">
+                    ✅ שמור מילה
+                </button>
+            </div>
+
+            ${state.hangmanWordBank.length > 0 ? `
+            <div style="width:100%; max-width:420px; margin-top:24px;">
+                <p class="bold" style="font-size:15px; margin-bottom:12px;">מילים קיימות (${state.hangmanWordBank.length}):</p>
+                <div class="hangman-chips-container">
+                    ${existingWords}
+                </div>
+            </div>` : `
+            <div style="margin-top:24px; opacity:0.6; text-align:center;">
+                <p style="font-size:15px;">עדיין אין מילים. הוסף את הראשונה!</p>
+            </div>`}
+
+            <div class="spacer-lg"></div>
+            <button class="neo-button bg-Back" style="max-width:120px;" onclick="navigate('MENU')">חזור</button>
+        </div>
+    `;
+}
+
+window.saveHangmanWord = async () => {
+    const wordInput     = document.getElementById('hangmanWordInput');
+    const categoryInput = document.getElementById('hangmanCategoryInput');
+    const btn           = document.getElementById('saveHangmanWordBtn');
+
+    const word     = wordInput?.value.trim().toUpperCase();
+    const category = categoryInput?.value.trim() || 'כללי';
+
+    if (!word || word.length < 2) {
+        showToast('אנא הזן מילה של לפחות 2 אותיות!', 'error');
+        return;
+    }
+    if (word.includes(' ') && word.replace(/ /g,'').length < 2) {
+        showToast('המילה קצרה מדי!', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = 'שומר...';
+
+    try {
+        await window.addDoc(window.collection(window.db, 'hangmanWords'), {
+            word,
+            category,
+            lang: state.currentLang.code,
+            addedAt: window.serverTimestamp()
+        });
+        showToast('✅ המילה נשמרה בהצלחה!', 'success');
+        if (wordInput)     wordInput.value     = '';
+        if (categoryInput) categoryInput.value = '';
+        render(); // refresh chip list
+    } catch (e) {
+        console.error(e);
+        showToast('שגיאה בשמירת המילה', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerText = '✅ שמור מילה';
+    }
+};
+
+function startHangmanSingle() {
+    const wordList = state.hangmanWordBank || [];
+    if (wordList.length === 0) {
+        showToast('אין מילים להגמן! הוסף מילים תחילה.', 'error', 4000);
+        navigate('ADD_HANGMAN_WORD');
+        return;
+    }
+    initHangmanState(wordList);
+    navigate('PLAYING_HANGMAN');
+}
+
+function initHangmanState(wordList) {
+    const entry = wordList[Math.floor(Math.random() * wordList.length)];
+    const word  = (entry.word || '').toUpperCase();
+    state.hangmanWord              = word.split('');
+    state.hangmanGuessed           = [];
+    state.hangmanWrong             = [];
+    state.hangmanDone              = false;
+    state.hangmanWon               = false;
+    state.hangmanOpponentWrongCount = 0;
+    state.hangmanOpponentDone      = false;
+    state.hangmanOpponentWon       = false;
+    state.hangmanOpponentWord      = '';
+    state.hangmanOpponentWrong     = [];
+    state.hangmanOpponentGuessed   = [];
+}
+
+function guessLetter(letter) {
+    if (state.hangmanDone) return;
+    if (state.hangmanGuessed.includes(letter) || state.hangmanWrong.includes(letter)) return;
+
+    if (state.hangmanWord.includes(letter)) {
+        state.hangmanGuessed.push(letter);
+    } else {
+        state.hangmanWrong.push(letter);
+    }
+
+    const won  = state.hangmanWord.length > 0 &&
+                 state.hangmanWord.every(ch => ch === ' ' || state.hangmanGuessed.includes(ch));
+    const lost = state.hangmanWrong.length >= 6;
+
+    if (won || lost) {
+        state.hangmanDone = true;
+        state.hangmanWon  = won;
+
+        if (state.isMultiplayer) {
+            window.updateDoc(window.doc(window.db, 'rooms', state.roomId), {
+                [`hangmanState.${state.myPlayerName}`]: {
+                    wrongCount : state.hangmanWrong.length,
+                    done       : true,
+                    won        : state.hangmanWon,
+                    word       : state.hangmanWord.join(''),
+                    guessed    : state.hangmanGuessed,
+                    wrong      : state.hangmanWrong
+                },
+                [`players.${state.myPlayerName}.finished`]: true
+            }).catch(e => console.error(e));
+        }
+    } else if (state.isMultiplayer) {
+        // Sync only wrong count during game (word stays private)
+        window.updateDoc(window.doc(window.db, 'rooms', state.roomId), {
+            [`hangmanState.${state.myPlayerName}.wrongCount`]: state.hangmanWrong.length
+        }).catch(e => console.error(e));
+    }
+
+    render();
 }

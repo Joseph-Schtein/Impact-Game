@@ -588,3 +588,296 @@ h2 {
     color: #ffffff !important;
     border-color: #5c0000 !important;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   ── Hangman Game Mode ──
+══════════════════════════════════════════════════════════════ */
+
+/* Word display row */
+.hangman-word {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 14px 0;
+    min-height: 52px;
+}
+
+/* Individual letter blank */
+.hangman-letter-box {
+    width: 38px;
+    height: 48px;
+    border-bottom: 3px solid var(--app-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--app-text);
+    transition: all 0.2s ease;
+}
+
+.hangman-letter-box.revealed {
+    animation: letterReveal 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    color: var(--app-text);
+}
+
+.hangman-letter-box.space {
+    border-bottom: none;
+    width: 18px;
+}
+
+@keyframes letterReveal {
+    0%   { transform: scale(1.5) translateY(-6px); opacity: 0; }
+    100% { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+
+/* On-screen keyboard */
+.hangman-keyboard {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 14px;
+    padding: 0 2px;
+}
+
+.hangman-key {
+    width: 40px;
+    height: 40px;
+    background: var(--white);
+    border: 2px solid var(--app-text);
+    border-radius: 9px;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    color: var(--app-text);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
+    box-shadow: 0 3px 0 rgba(33, 2, 110, 0.25);
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.hangman-key:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 0 rgba(33, 2, 110, 0.25);
+}
+
+.hangman-key:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 rgba(33, 2, 110, 0.2);
+}
+
+.hangman-key.correct {
+    background: var(--accent-teal);
+    border-color: #047857;
+    opacity: 0.65;
+    cursor: default;
+    box-shadow: none;
+    transform: none;
+}
+
+.hangman-key.wrong {
+    background: #2d2d2d;
+    border-color: #000;
+    color: #fff;
+    opacity: 0.5;
+    cursor: default;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Wrong letters list */
+.hangman-wrong-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 14px;
+    background: rgba(229, 57, 53, 0.07);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    border: 1.5px solid rgba(229, 57, 53, 0.2);
+}
+
+.hangman-wrong-letter {
+    font-size: 17px;
+    font-weight: 800;
+    color: #c62828;
+    background: rgba(229, 57, 53, 0.12);
+    padding: 2px 7px;
+    border-radius: 6px;
+}
+
+/* ── Multiplayer Split Screen ── */
+.hangman-split {
+    display: flex;
+    gap: 0;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.hangman-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px;
+    min-width: 0;
+}
+
+.hangman-panel.opponent {
+    opacity: 0.88;
+}
+
+.hangman-panel-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--app-text);
+    text-align: center;
+    margin-bottom: 8px;
+    padding: 3px 14px;
+    background: rgba(33, 2, 110, 0.08);
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.hangman-divider {
+    width: 2px;
+    background: linear-gradient(to bottom, transparent, rgba(33,2,110,0.18), transparent);
+    align-self: stretch;
+    margin: 0 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+/* Smaller word display for multiplayer panels */
+.hangman-word.small {
+    gap: 4px;
+    margin: 8px 0;
+    min-height: 32px;
+}
+
+.hangman-word.small .hangman-letter-box {
+    width: 20px;
+    height: 26px;
+    font-size: 13px;
+    border-bottom-width: 2px;
+}
+
+/* Smaller keyboard for multiplayer */
+.hangman-keyboard.small {
+    gap: 3px;
+    margin-top: 8px;
+}
+
+.hangman-keyboard.small .hangman-key {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+    border-radius: 5px;
+    border-width: 1.5px;
+    box-shadow: 0 2px 0 rgba(33,2,110,0.2);
+}
+
+.hangman-wrong-list.small {
+    gap: 3px;
+    padding: 5px 8px;
+    margin-bottom: 8px;
+}
+
+.hangman-wrong-list.small .hangman-wrong-letter {
+    font-size: 12px;
+    padding: 1px 5px;
+}
+
+/* ── Results reveal panel ── */
+.hangman-result-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 10px;
+    background: rgba(255, 255, 255, 0.55);
+    border-radius: 18px;
+    border: 2px solid rgba(33, 2, 110, 0.1);
+    min-width: 0;
+    box-shadow: 0 4px 16px rgba(33, 2, 110, 0.06);
+}
+
+/* ── Win / Lose Overlay ── */
+.hangman-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(33, 2, 110, 0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(5px);
+    animation: overlayIn 0.35s ease;
+}
+
+@keyframes overlayIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.hangman-overlay-box {
+    background: var(--app-bg);
+    padding: 32px 28px;
+    border-radius: 26px;
+    text-align: center;
+    max-width: 330px;
+    width: 90%;
+    border: 3px solid var(--app-text);
+    box-shadow: 0 16px 48px rgba(33, 2, 110, 0.28);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: overlayBoxIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes overlayBoxIn {
+    from { transform: scale(0.85) translateY(20px); opacity: 0; }
+    to   { transform: scale(1)    translateY(0);    opacity: 1; }
+}
+
+/* ── Word Chips (Add Word Screen) ── */
+.hangman-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 14px;
+    border: 2px solid rgba(33, 2, 110, 0.08);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.hangman-word-chip {
+    background: var(--white);
+    color: var(--app-text);
+    border: 2px solid rgba(33, 2, 110, 0.2);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 0 rgba(33, 2, 110, 0.12);
+    transition: transform 0.15s ease;
+}
+
+.hangman-word-chip:hover {
+    transform: translateY(-1px);
+}
+
+/* @keyframes for hangman body-part pop */
+@keyframes hangmanPop {
+    0%   { opacity: 0; transform: scale(1.4); }
+    100% { opacity: 1; transform: scale(1);   }
+}
