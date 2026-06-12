@@ -23,7 +23,9 @@ const dict = {
     "leaderboard_title": { en: "Top 100", he: "100 המובילים", ar: "أفضل 100", ru: "Топ 100" },
     "submit_score": { en: "Submit Score", he: "שלח תוצאה", ar: "إرسال النتيجة", ru: "Отправить результат" },
     "your_name": { en: "Your Name", he: "השם שלך", ar: "اسمك", ru: "Ваше имя" },
-    "mode_multiplayer": { en: "1v1 Online", he: "1 נגד 1 אונליין", ar: "1 ضد 1 أونلاين", ru: "1 на 1 Онлайн" },
+    "mode_multiplayer": { en: "Online Match", he: "משחק אונליין", ar: "مباراة أونلاين", ru: "Онлайн матч" },
+    "single_btn": { en: "SINGLE PLAYER", he: "שחקן יחיד", ar: "لاعب واحد", ru: "ОДИНОЧНАЯ ИГРА" },
+    "multi_btn": { en: "MULTIPLAYER", he: "מרובה משתתפים", ar: "تعدد اللاعبين", ru: "МНОГОПОЛЬЗОВАТЕЛЬСКАЯ ИГРА" },
     "create_room": { en: "Create Room", he: "צור חדר", ar: "إنشاء غرفة", ru: "Создать комнату" },
     "join_room": { en: "Join Room", he: "הצטרף לחדר", ar: "الانضمام لغرفة", ru: "Присоединиться к комнате" }
 };
@@ -65,7 +67,10 @@ const state = {
 
     // Timer
     questionTimer: 15,
-    timerInterval: null
+    timerInterval: null,
+    
+    // Multiplayer sync
+    isWaitingForOthers: false
 };
 
 const categoryList = ["אנימה", "תרבות פופ", "מושגים"];
@@ -121,11 +126,13 @@ function render() {
         case 'SPLASH': html = renderSplash(); break;
         case 'MENU': html = renderMenu(); break;
         case 'MODE_SELECT': html = renderModeSelect(); break;
+        case 'MODE_SELECT_MULTI': html = renderModeSelectMulti(); break;
         case 'BET_MENU': html = renderBetMenu(); break;
         case 'SUBJECTS': html = renderSubjects(); break;
         case 'PLAYING_CLASSIC': html = renderClassic(); break;
         case 'PLAYING_BET': html = renderBetBurn(); break;
         case 'PLAYING_CLIMB': html = renderClimb(); break;
+        case 'PLAYING_MATCH_PAIRS': html = renderMatchPairs(); break;
         case 'CLIMB_RESULT': html = renderClimbResult(); break;
         case 'GAME_OVER': html = renderGameOver(); break;
         case 'ADD_QUESTION': html = renderAddQuestion(); break;
@@ -139,6 +146,48 @@ function render() {
 }
 
 // --- SCREEN COMPONENTS ---
+function renderWaitingScreen() {
+    const playersArr = Object.entries(state.multiplayerPlayers).sort((a, b) => b[1].score - a[1].score);
+    const leaderboardHtml = playersArr.map(([pName, pData], idx) => {
+        const isMe = pName === state.myPlayerName;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : `${pData.score} נק'`;
+        return `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:${isMe ? 'var(--vibrant-indigo)' : 'var(--white)'}; color:${isMe ? 'var(--white)' : 'var(--app-text)'}; padding:8px 12px; margin:4px 0; border-radius:8px; border: 2px solid var(--app-text); font-weight:bold; font-size: 16px; width: 100%; max-width: 300px;">
+            <div>#${idx + 1} &nbsp; ${pName}</div>
+            <div dir="ltr">${scoreDisplay}</div>
+        </div>`;
+    }).join('');
+
+    let rulesHtml = '';
+    if (state.selectedMode === 'CLASSIC') {
+        const p = Object.keys(state.multiplayerPlayers).length;
+        rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
+            <b class="color-coral">חוקי ניקוד:</b> העונה ראשון נכונה מקבל ${p} נק', השני ${Math.max(1, p-1)} נק', וכו'. תשובה שגויה מעניקה 0 נק'.
+        </p>`;
+    } else if (state.selectedMode === 'CLIMB') {
+        rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
+            <b class="color-coral">חוקי הטיפוס:</b> תשובה נכונה מעלה אותך שלב, שגויה מורידה אותך שלב.
+        </p>`;
+    } else if (state.selectedMode === 'BET_BURN') {
+        rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
+            <b class="color-coral">חוקי הימור:</b> תשובה נכונה מוסיפה את ההימור שלך, שגויה שורפת אותו.
+        </p>`;
+    }
+
+    return `
+        <div class="screen-wrapper" style="align-items:center; justify-content:center;">
+            <h2 class="main-title" style="font-size: 26px; margin-bottom: 8px;">ממתין לשאר השחקנים...</h2>
+            <div class="loader" style="margin-top:10px; margin-bottom: 24px;"></div>
+            
+            <p class="bold color-indigo" style="margin-bottom: 10px; font-size: 18px;">מצב נוכחי:</p>
+            <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                ${leaderboardHtml}
+            </div>
+            
+            ${rulesHtml}
+        </div>`;
+}
+
 function renderSplash() {
     setTimeout(() => { state.currentScreen = 'MENU'; render(); }, 2000);
     return `<div class="screen-wrapper" style="align-items:center; justify-content:center; text-align:center;">
@@ -157,7 +206,8 @@ function renderMenu() {
             ${SHOW_LANG_SELECTOR ? `<div style="margin-bottom:40px; text-align: center;">${langs}</div>` : ''}
             <h1 class="main-title">${getString('menu_title')}</h1>
             <div class="button-group">
-                <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('play_btn')}</button>
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('single_btn')}</button>
+                <button class="neo-button bg-Back" style="height:60px; margin-top: 12px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('multi_btn')}</button>
                 <button class="neo-button bg-coral" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
             </div>
         </div>`;
@@ -168,10 +218,25 @@ function renderModeSelect() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('mode_title')}</h2>
             <div class="button-group">
-                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC')"> ${getString('mode_classic')}</button>
-                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB')"> ${getString('mode_climb')}</button>
-                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN')"> ${getString('mode_bet')}</button>
-                <button class="neo-button bg-Back" style="height:60px;" onclick="setMode('MULTIPLAYER')"> ⚔️ ${getString('mode_multiplayer')}</button>
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', false)"> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', false)"> ${getString('mode_climb')}</button>
+                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', false)"> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: var(--vibrant-indigo); color: var(--white);" onclick="setMode('MATCH_PAIRS', false)">התאמת זוגות</button>
+                <div class="spacer-lg"></div>
+                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
+            </div>
+        </div>`;
+}
+
+function renderModeSelectMulti() {
+    return `
+        <div class="screen-wrapper">
+            <h2 class="main-title">${getString('multi_btn')}</h2>
+            <div class="button-group">
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', true)"> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', true)"> ${getString('mode_climb')}</button>
+                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', true)"> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: var(--vibrant-indigo); color: var(--white);" onclick="setMode('MATCH_PAIRS', true)">התאמת זוגות</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
@@ -241,6 +306,10 @@ function generateOptionsHTML(opts) {
 }
 
 function renderClassic() {
+    if (state.isWaitingForOthers) {
+        return renderWaitingScreen();
+    }
+
     const q = state.currentPlayList[state.currentIndex];
     if (!q) return navigate('MENU');
     const qText = q.textMap[state.currentLang.code] || q.textMap["en"];
@@ -273,6 +342,10 @@ function renderClassic() {
 }
 
 function renderBetBurn() {
+    if (state.isWaitingForOthers) {
+        return renderWaitingScreen();
+    }
+
     const q = state.currentPlayList[state.currentIndex];
     if (!q) return navigate('MENU');
     const qText = q.textMap[state.currentLang.code] || q.textMap["en"];
@@ -315,100 +388,138 @@ function renderBetBurn() {
         </div>`;
 }
 
-function buildMountainSVG(rank, animateClass) {
-    // Wider canvas: viewBox 520x240
-    // Peak: (260, 28), Left base: (20, 220), Right base: (500, 220)
-    const t = rank / 10;
-    const cx = 20 + 240 * t;   // 20 -> 260
-    const cy = 220 - 192 * t;  // 220 -> 28
+function buildMountainSVG(rank, animateClass, oppRank = -1, isMultiplayer = false, isHost = true) {
+    function getClimberHtml(r, anim, side) {
+        if (r < 0) return '';
+        const t = r / 10;
+        let newX, newY, oldX, oldY;
+
+        if (side === 'left') {
+            newX = 20 + 240 * t;
+            newY = 220 - 192 * t;
+            const oldRank = anim === 'climber-up' ? Math.max(isMultiplayer ? 0 : -1, r - 1) :
+                            (anim === 'climber-down' ? Math.min(10, r + 1) : r);
+            const tOld = oldRank / 10;
+            oldX = 20 + 240 * tOld;
+            oldY = 220 - 192 * tOld;
+        } else {
+            newX = 500 - 240 * t;
+            newY = 220 - 192 * t;
+            const oldRank = anim === 'climber-up' ? Math.max(isMultiplayer ? 0 : -1, r - 1) :
+                            (anim === 'climber-down' ? Math.min(10, r + 1) : r);
+            const tOld = oldRank / 10;
+            oldX = 500 - 240 * tOld;
+            oldY = 220 - 192 * tOld;
+        }
+
+        const prefix = side === 'left' ? 'L' : 'R';
+        let dynamicAnim = '';
+        let climberClass = '';
+        if (anim === 'climber-up') {
+            dynamicAnim = `
+            <style>
+                @keyframes climbUpAction${prefix} {
+                    0% { transform: translate(${oldX.toFixed(1)}px, ${oldY.toFixed(1)}px) rotate(0deg); }
+                    25% { transform: translate(${(oldX + (newX - oldX) * 0.25).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.25 - 12).toFixed(1)}px) rotate(${side === 'left' ? 15 : -15}deg); }
+                    50% { transform: translate(${(oldX + (newX - oldX) * 0.50).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.50 - 4).toFixed(1)}px) rotate(${side === 'left' ? -10 : 10}deg); }
+                    75% { transform: translate(${(oldX + (newX - oldX) * 0.75).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.75 - 12).toFixed(1)}px) rotate(${side === 'left' ? 10 : -10}deg); }
+                    100% { transform: translate(${newX.toFixed(1)}px, ${newY.toFixed(1)}px) rotate(0deg); }
+                }
+                .dynamic-climber-${prefix} { animation: climbUpAction${prefix} 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+            </style>`;
+            climberClass = `dynamic-climber-${prefix}`;
+        } else if (anim === 'climber-down') {
+            dynamicAnim = `
+            <style>
+                @keyframes climbDownAction${prefix} {
+                    0% { transform: translate(${oldX.toFixed(1)}px, ${oldY.toFixed(1)}px) rotate(0deg); }
+                    25% { transform: translate(${(oldX + (newX - oldX) * 0.25).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.25 + 5).toFixed(1)}px) rotate(${side === 'left' ? -20 : 20}deg); }
+                    50% { transform: translate(${(oldX + (newX - oldX) * 0.50).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.50 + 15).toFixed(1)}px) rotate(${side === 'left' ? -40 : 40}deg); }
+                    75% { transform: translate(${(oldX + (newX - oldX) * 0.75).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.75 + 5).toFixed(1)}px) rotate(${side === 'left' ? -20 : 20}deg); }
+                    100% { transform: translate(${newX.toFixed(1)}px, ${newY.toFixed(1)}px) rotate(0deg); }
+                }
+                .dynamic-climber-${prefix} { animation: climbDownAction${prefix} 0.9s ease-in-out forwards; }
+            </style>`;
+            climberClass = `dynamic-climber-${prefix}`;
+        } else {
+            dynamicAnim = `
+            <style>
+                @keyframes climbIdle${prefix} {
+                    0%, 100% { transform: translate(${newX.toFixed(1)}px, ${newY.toFixed(1)}px); }
+                    50% { transform: translate(${newX.toFixed(1)}px, ${(newY - 3).toFixed(1)}px); }
+                }
+                .dynamic-climber-${prefix} { animation: climbIdle${prefix} 2s ease-in-out infinite; }
+            </style>`;
+            climberClass = `dynamic-climber-${prefix}`;
+        }
+
+        const bodyColor = side === 'left' ? '#21026e' : '#145c47';
+        const headColor = side === 'left' ? '#f97b57' : '#34a883';
+        const scaleStr = side === 'left' ? '' : 'scale(-1, 1)';
+
+        return `
+            ${dynamicAnim}
+            <g class="${climberClass}" id="climber-avatar-${prefix}">
+              <g transform="${scaleStr}">
+                <line x1="0" y1="-16" x2="0" y2="-4" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="0" cy="-21" r="5" fill="${headColor}" stroke="${bodyColor}" stroke-width="2"/>
+                <line x1="0" y1="-14" x2="-9" y2="-8" stroke="${bodyColor}" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="0" y1="-14" x2="9" y2="-19" stroke="${bodyColor}" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="9" y1="-19" x2="15" y2="-24" stroke="#888" stroke-width="2" stroke-linecap="round"/>
+                <line x1="12" y1="-27" x2="18" y2="-21" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="0" y1="-4" x2="-6" y2="5" stroke="${bodyColor}" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="0" y1="-4" x2="6" y2="3" stroke="${bodyColor}" stroke-width="2.5" stroke-linecap="round"/>
+              </g>
+            </g>`;
+    }
+
+    let leftRank, leftAnimate, rightRank, rightAnimate;
+    if (isMultiplayer) {
+        if (isHost) {
+            leftRank = rank;
+            leftAnimate = animateClass;
+            rightRank = oppRank;
+            rightAnimate = '';
+        } else {
+            rightRank = rank;
+            rightAnimate = animateClass;
+            leftRank = oppRank;
+            leftAnimate = '';
+        }
+    } else {
+        leftRank = rank;
+        leftAnimate = animateClass;
+        rightRank = -1;
+        rightAnimate = '';
+    }
 
     const stepMarkers = Array.from({ length: 11 }, (_, i) => {
         const mt = i / 10;
         const mx = 20 + 240 * mt;
         const my = 220 - 192 * mt;
         return `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="5"
-            fill="${i <= rank ? '#21026e' : 'rgba(33,2,110,0.2)'}"
+            fill="${i <= leftRank ? '#21026e' : 'rgba(33,2,110,0.2)'}"
             stroke="white" stroke-width="1.5"/>`;
     }).join('');
 
-    // Calculate old rank to animate from
-    const oldRank = animateClass === 'climber-up' ? Math.max(-1, rank - 1) :
-        (animateClass === 'climber-down' ? Math.min(10, rank + 1) : rank);
-
-    const tOld = oldRank / 10;
-    const oldX = 20 + 240 * tOld;
-    const oldY = 220 - 192 * tOld;
-
-    const tNew = rank / 10;
-    const newX = 20 + 240 * tNew;
-    const newY = 220 - 192 * tNew;
-
-    let dynamicAnim = '';
-    let climberClass = '';
-    if (animateClass === 'climber-up') {
-        dynamicAnim = `
-        <style>
-            @keyframes climbUpAction {
-                0% { transform: translate(${oldX.toFixed(1)}px, ${oldY.toFixed(1)}px) rotate(0deg); }
-                25% { transform: translate(${(oldX + (newX - oldX) * 0.25).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.25 - 12).toFixed(1)}px) rotate(15deg); }
-                50% { transform: translate(${(oldX + (newX - oldX) * 0.50).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.50 - 4).toFixed(1)}px) rotate(-10deg); }
-                75% { transform: translate(${(oldX + (newX - oldX) * 0.75).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.75 - 12).toFixed(1)}px) rotate(10deg); }
-                100% { transform: translate(${newX.toFixed(1)}px, ${newY.toFixed(1)}px) rotate(0deg); }
-            }
-            .dynamic-climber {
-                animation: climbUpAction 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-            }
-        </style>`;
-        climberClass = 'dynamic-climber';
-    } else if (animateClass === 'climber-down') {
-        dynamicAnim = `
-        <style>
-            @keyframes climbDownAction {
-                0% { transform: translate(${oldX.toFixed(1)}px, ${oldY.toFixed(1)}px) rotate(0deg); }
-                25% { transform: translate(${(oldX + (newX - oldX) * 0.25).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.25 + 5).toFixed(1)}px) rotate(-20deg); }
-                50% { transform: translate(${(oldX + (newX - oldX) * 0.50).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.50 + 15).toFixed(1)}px) rotate(-40deg); }
-                75% { transform: translate(${(oldX + (newX - oldX) * 0.75).toFixed(1)}px, ${(oldY + (newY - oldY) * 0.75 + 5).toFixed(1)}px) rotate(-20deg); }
-                100% { transform: translate(${newX.toFixed(1)}px, ${newY.toFixed(1)}px) rotate(0deg); }
-            }
-            .dynamic-climber {
-                animation: climbDownAction 0.9s ease-in-out forwards;
-            }
-        </style>`;
-        climberClass = 'dynamic-climber';
-    } else {
-        dynamicAnim = `
-        <style>
-            @keyframes climbIdle {
-                0%, 100% { transform: translate(${newX.toFixed(1)}px, ${newY.toFixed(1)}px); }
-                50% { transform: translate(${newX.toFixed(1)}px, ${(newY - 3).toFixed(1)}px); }
-            }
-            .dynamic-climber {
-                animation: climbIdle 2s ease-in-out infinite;
-            }
-        </style>`;
-        climberClass = 'dynamic-climber';
+    let stepMarkersRight = '';
+    if (isMultiplayer) {
+        stepMarkersRight = Array.from({ length: 11 }, (_, i) => {
+            const mt = i / 10;
+            const mx = 500 - 240 * mt;
+            const my = 220 - 192 * mt;
+            return `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="5"
+                fill="${i <= rightRank ? '#145c47' : 'rgba(20,92,71,0.2)'}"
+                stroke="white" stroke-width="1.5"/>`;
+        }).join('');
     }
 
-    const climber = `
-        ${dynamicAnim}
-        <g class="${climberClass}" id="climber-avatar">
-            <!-- Body -->
-            <line x1="0" y1="-16" x2="0" y2="-4" stroke="#21026e" stroke-width="3" stroke-linecap="round"/>
-            <!-- Head -->
-            <circle cx="0" cy="-21" r="5" fill="#f97b57" stroke="#21026e" stroke-width="2"/>
-            <!-- Left arm -->
-            <line x1="0" y1="-14" x2="-9" y2="-8" stroke="#21026e" stroke-width="2.5" stroke-linecap="round"/>
-            <!-- Right arm (holding pick) -->
-            <line x1="0" y1="-14" x2="9" y2="-19" stroke="#21026e" stroke-width="2.5" stroke-linecap="round"/>
-            <!-- Pick axe handle -->
-            <line x1="9" y1="-19" x2="15" y2="-24" stroke="#888" stroke-width="2" stroke-linecap="round"/>
-            <!-- Pick axe head -->
-            <line x1="12" y1="-27" x2="18" y2="-21" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
-            <!-- Left leg -->
-            <line x1="0" y1="-4" x2="-6" y2="5" stroke="#21026e" stroke-width="2.5" stroke-linecap="round"/>
-            <!-- Right leg -->
-            <line x1="0" y1="-4" x2="6" y2="3" stroke="#21026e" stroke-width="2.5" stroke-linecap="round"/>
-        </g>`;
+    const climberLeft = getClimberHtml(leftRank, leftAnimate, 'left');
+    const climberRight = getClimberHtml(rightRank, rightAnimate, 'right');
+
+    const rankDisplay = isMultiplayer ? 
+        `רמה ${Math.max(0, isHost ? leftRank : rightRank)} / 10 (אתה) | רמה ${Math.max(0, isHost ? rightRank : leftRank)} / 10 (יריב)` :
+        `רמה ${Math.max(0, leftRank)} / 10`;
 
     return `
     <svg viewBox="0 0 520 240" xmlns="http://www.w3.org/2000/svg"
@@ -467,22 +578,28 @@ function buildMountainSVG(rank, animateClass) {
 
         <!-- Step markers -->
         ${stepMarkers}
+        ${stepMarkersRight}
 
         <!-- Level label -->
         <text x="260" y="234" text-anchor="middle" font-size="12" font-weight="bold"
-              fill="white" font-family="sans-serif">רמה ${rank} / 10</text>
+              fill="white" font-family="sans-serif">${rankDisplay}</text>
 
-        <!-- Climber -->
-        ${climber}
+        <!-- Climbers -->
+        ${climberLeft}
+        ${climberRight}
 
         <!-- Victory flag -->
-        ${rank >= 10 ? `
+        ${rank >= 10 || oppRank >= 10 ? `
         <line x1="260" y1="28" x2="260" y2="4" stroke="#f97b57" stroke-width="2.5"/>
         <polygon points="260,4 280,12 260,20" fill="#f97b57"/>` : ''}
     </svg>`;
 }
 
 function renderClimb() {
+    if (state.isWaitingForOthers) {
+        return renderWaitingScreen();
+    }
+
     // Cycle questions if we run out
     const qIdx = state.currentIndex % state.currentPlayList.length;
     const q = state.currentPlayList[qIdx];
@@ -493,6 +610,13 @@ function renderClimb() {
     const screenAnimClass = !state.selectedOption ? 'climb-enter' : '';
     const panelAnimClass = !state.selectedOption ? 'climb-question-enter' : '';
 
+    let oppRank = -1;
+    if (state.isMultiplayer && state.multiplayerPlayers) {
+        const players = Object.entries(state.multiplayerPlayers);
+        const opp = players.find(([name]) => name !== state.myPlayerName);
+        if (opp) oppRank = opp[1].score;
+    }
+
     return `
         <div class="screen-wrapper ${screenAnimClass}" id="climb-screen">
             <div style="display:flex; justify-content:center; align-items:center;">
@@ -501,7 +625,7 @@ function renderClimb() {
             <div class="spacer-sm"></div>
 
             <!-- Mountain SVG -->
-            ${buildMountainSVG(state.rank, '')}
+            ${buildMountainSVG(state.rank, '', oppRank, state.isMultiplayer, state.isHost)}
 
             <div class="spacer-md"></div>
             <div class="${panelAnimClass}">
@@ -530,17 +654,33 @@ function renderClimbResult() {
         const wrapper = document.querySelector('.screen-wrapper');
         if (wrapper) wrapper.classList.add('climb-exit');
 
-        setTimeout(() => {
-            if (state.rank >= 10) {
-                navigate('GAME_OVER');
-            } else if (state.rank < 0) {
-                navigate('GAME_OVER');
+        setTimeout(async () => {
+            if (state.rank >= 10 || state.rank < 0) {
+                if (state.isMultiplayer) {
+                    try {
+                        const updatePath = `players.${state.myPlayerName}.finished`;
+                        await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                            [updatePath]: true
+                        });
+                    } catch (e) { console.error("Error finishing match:", e); }
+                    navigate('MULTIPLAYER_WAIT');
+                } else {
+                    navigate('GAME_OVER');
+                }
             } else {
                 state.selectedOption = null;
+                if (!state.isMultiplayer) state.currentIndex++;
                 navigate('PLAYING_CLIMB');
             }
         }, 300);
     }, 2500);
+
+    let oppRank = -1;
+    if (state.isMultiplayer && state.multiplayerPlayers) {
+        const players = Object.entries(state.multiplayerPlayers);
+        const opp = players.find(([name]) => name !== state.myPlayerName);
+        if (opp) oppRank = opp[1].score;
+    }
 
     return `
         <div class="screen-wrapper climb-enter" style="padding: 0; overflow: hidden; align-items:center; justify-content:center;">
@@ -552,12 +692,202 @@ function renderClimbResult() {
                 
                 <!-- Mountain SVG -->
                 <div style="width: 100%; max-width: 600px; padding: 0 16px;">
-                    ${buildMountainSVG(state.rank, animClass)}
+                    ${buildMountainSVG(state.rank, animClass, oppRank, state.isMultiplayer, state.isHost)}
                 </div>
                 
             </div>
         </div>`;
 }
+
+function renderMatchPairs() {
+    if (state.isWaitingForOthers) return renderWaitingScreen();
+
+    const q = state.currentPlayList[state.currentIndex];
+    if (!q) { navigate('GAME_OVER'); return ''; }
+
+    const pairs = q.pairsMap[state.currentLang.code] || q.pairsMap["en"];
+
+    if (!state.currentMatchPool || state.currentMatchPool.questionIndex !== state.currentIndex) {
+        state.currentMatchPool = {
+            questionIndex: state.currentIndex,
+            lefts: shuffleArray(pairs.map((p, idx) => ({ text: p.left, id: idx, matched: false }))),
+            rights: shuffleArray(pairs.map((p, idx) => ({ text: p.right, id: idx, matched: false })))
+        };
+        state.matchSelections = { left: null, right: null };
+        state.matchedPairsCount = 0;
+    }
+
+    const pool = state.currentMatchPool;
+
+    if (state.isMultiplayer && !state.timerInterval) {
+        startQuestionTimer();
+    }
+
+    let leftColHtml = pool.lefts.map((item, i) => {
+        let cls = 'match-item';
+        if (item.matched) cls += ' matched';
+        else if (state.matchSelections.left === i) cls += ' selected';
+        if (state.matchErrorLeft === i) cls += ' error';
+
+        return `<div class="${cls}" id="match-left-${i}" 
+                onclick="${item.matched ? '' : `selectMatch('left', ${i})`}">${item.text}</div>`;
+    }).join('');
+
+    let rightColHtml = pool.rights.map((item, i) => {
+        let cls = 'match-item';
+        if (item.matched) cls += ' matched';
+        else if (state.matchSelections.right === i) cls += ' selected';
+        if (state.matchErrorRight === i) cls += ' error';
+
+        return `<div class="${cls}" id="match-right-${i}" 
+                onclick="${item.matched ? '' : `selectMatch('right', ${i})`}">${item.text}</div>`;
+    }).join('');
+
+    setTimeout(window.drawMatchLines, 50);
+
+    return `
+        <div class="screen-wrapper">
+            <div style="display:flex; justify-content:center;">
+                <button class="neo-button bg-Back" style="width:auto; padding:8px 20px; margin-bottom:0;" onclick="navigate('MENU')">${getString('back')}</button>
+            </div>
+            <div class="spacer-md"></div>
+            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;">⏳ ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+            <h2 style="font-size: 20px; text-align: center;">התאם את הזוגות (נקודות: ${state.score} / 25)</h2>
+            
+            <div class="match-container" id="match-container">
+                <svg class="match-svg-overlay" id="match-svg"></svg>
+                <div class="match-column">${leftColHtml}</div>
+                <div class="match-column">${rightColHtml}</div>
+            </div>
+        </div>
+    `;
+}
+
+window.selectMatch = (side, idx) => {
+    state.matchSelections[side] = idx;
+    state.matchErrorLeft = null;
+    state.matchErrorRight = null;
+    render();
+
+    if (state.matchSelections.left !== null && state.matchSelections.right !== null) {
+        checkMatchPair();
+    }
+};
+
+window.checkMatchPair = () => {
+    const lIdx = state.matchSelections.left;
+    const rIdx = state.matchSelections.right;
+    const pool = state.currentMatchPool;
+
+    const leftItem = pool.lefts[lIdx];
+    const rightItem = pool.rights[rIdx];
+
+    if (leftItem.id === rightItem.id) {
+        leftItem.matched = true;
+        rightItem.matched = true;
+        state.matchedPairsCount++;
+        state.score++;
+        
+        if (state.isMultiplayer) {
+            window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                [`players.${state.myPlayerName}.score`]: state.score
+            }).catch(e => console.error(e));
+        }
+
+        state.matchSelections = { left: null, right: null };
+        render();
+
+        setTimeout(() => {
+            window.drawMatchLines();
+            checkMatchWinCondition();
+        }, 50);
+
+    } else {
+        state.matchErrorLeft = lIdx;
+        state.matchErrorRight = rIdx;
+        render();
+
+        setTimeout(() => {
+            state.matchErrorLeft = null;
+            state.matchErrorRight = null;
+            state.matchSelections = { left: null, right: null };
+            render();
+        }, 400); 
+    }
+};
+
+window.drawMatchLines = () => {
+    const svg = document.getElementById('match-svg');
+    const container = document.getElementById('match-container');
+    if (!svg || !container) return;
+
+    const rectContainer = container.getBoundingClientRect();
+    const pool = state.currentMatchPool;
+    if (!pool) return;
+
+    let svgHtml = `
+        <defs>
+            <marker id="match-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="3.5" markerHeight="3.5" orient="auto-start-reverse">
+                <path d="M 1 1 L 9 5 L 1 9 z" fill="#036142" />
+            </marker>
+        </defs>
+    `;
+    
+    pool.lefts.forEach((lItem, lIdx) => {
+        if (lItem.matched) {
+            const rIdx = pool.rights.findIndex(r => r.id === lItem.id);
+            if (rIdx > -1) {
+                const elLeft = document.getElementById(`match-left-${lIdx}`);
+                const elRight = document.getElementById(`match-right-${rIdx}`);
+                if (elLeft && elRight) {
+                    const rL = elLeft.getBoundingClientRect();
+                    const rR = elRight.getBoundingClientRect();
+                    
+                    const x1 = state.currentLang.isRtl ? (rL.left - rectContainer.left) : (rL.right - rectContainer.left);
+                    const y1 = rL.top - rectContainer.top + rL.height / 2;
+                    const x2 = state.currentLang.isRtl ? (rR.right - rectContainer.left) : (rR.left - rectContainer.left);
+                    const y2 = rR.top - rectContainer.top + rR.height / 2;
+                    
+                    const mx = (x1 + x2) / 2;
+                    svgHtml += `<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="#036142" stroke-width="4" stroke-linecap="round" marker-start="url(#match-arrow)" marker-end="url(#match-arrow)"/>`;
+                }
+            }
+        }
+    });
+
+    svg.innerHTML = svgHtml;
+};
+
+window.checkMatchWinCondition = () => {
+    if (state.score >= 25) {
+        if (state.isMultiplayer) {
+            window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                [`players.${state.myPlayerName}.finished`]: true
+            }).catch(e => console.error(e));
+            navigate('MULTIPLAYER_WAIT');
+        } else {
+            navigate('GAME_OVER');
+        }
+        return;
+    }
+
+    const pool = state.currentMatchPool;
+    if (state.matchedPairsCount >= pool.lefts.length) {
+        if (state.currentIndex < state.currentPlayList.length - 1) {
+            state.currentIndex++;
+            render();
+        } else {
+            if (state.isMultiplayer) {
+                window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                    [`players.${state.myPlayerName}.finished`]: true
+                }).catch(e => console.error(e));
+                navigate('MULTIPLAYER_WAIT');
+            } else {
+                navigate('GAME_OVER');
+            }
+        }
+    }
+};
 
 function renderGameOver() {
     let headline = '';
@@ -583,6 +913,9 @@ function renderGameOver() {
                 <button class="neo-button bg-teal" id="submitScoreBtn" onclick="submitScore()">${getString('submit_score')}</button>
             </div>
         `;
+    } else if (state.selectedMode === 'MATCH_PAIRS') {
+        headline = getString('game_over');
+        subline = state.score >= 25 ? '🏆 ניצחון!' : `<span dir="ltr">${state.score} / 25</span>`;
     } else {
         headline = getString('game_over');
         subline = `<span dir="ltr">${state.score} / ${state.currentPlayList.length}</span>`;
@@ -700,6 +1033,88 @@ window.submitScore = async () => {
 
 // --- ADD QUESTION SCREEN & LOGIC ---
 
+window.addPairRow = (afterRow = null) => {
+    const container = document.getElementById('pairsContainer');
+    if (!container) return;
+    const currentCount = container.querySelectorAll('.pair-row').length;
+    if (currentCount >= 10) {
+        showToast("ניתן להוסיף עד 10 זוגות", 'info');
+        return;
+    }
+    const row = document.createElement('div');
+    row.className = 'pair-row';
+    row.style.display = 'flex';
+    row.style.gap = '10px';
+    row.style.marginBottom = '10px';
+    row.style.alignItems = 'center';
+    row.innerHTML = `
+        <input type="text" class="neo-input match-left" placeholder="צד ימין (לדוגמה: לופי)" style="margin-bottom:0; flex: 1;">
+        <input type="text" class="neo-input match-right" placeholder="צד שמאל (לדוגמה: וואן פיס)" style="margin-bottom:0; flex: 1;">
+    `;
+    if (afterRow && afterRow.nextSibling) {
+        container.insertBefore(row, afterRow.nextSibling);
+    } else {
+        container.appendChild(row);
+    }
+    window.updatePairButtons();
+};
+
+window.removePairRow = (row) => {
+    const container = document.getElementById('pairsContainer');
+    const currentCount = container.querySelectorAll('.pair-row').length;
+    if (currentCount <= 5) {
+        showToast("חובה לפחות 5 זוגות", 'info');
+        return;
+    }
+    row.remove();
+    window.updatePairButtons();
+};
+
+window.updatePairButtons = () => {
+    const container = document.getElementById('pairsContainer');
+    if (!container) return;
+    const rows = container.querySelectorAll('.pair-row');
+    const total = rows.length;
+
+    rows.forEach((row) => {
+        let btnContainer = row.querySelector('.btn-container');
+        if (!btnContainer) {
+            btnContainer = document.createElement('div');
+            btnContainer.className = 'btn-container';
+            btnContainer.style.display = 'flex';
+            btnContainer.style.gap = '5px';
+            row.appendChild(btnContainer);
+        }
+
+        let removeBtn = btnContainer.querySelector('.remove-pair-btn');
+        let addBtn = btnContainer.querySelector('.add-pair-btn');
+        
+        if (addBtn) {
+            addBtn.remove();
+        }
+
+        if (!removeBtn) {
+            removeBtn = document.createElement('button');
+            removeBtn.className = 'neo-button bg-coral remove-pair-btn';
+            removeBtn.style.height = '58px';
+            removeBtn.style.width = '58px';
+            removeBtn.style.padding = '0';
+            removeBtn.style.margin = '0';
+            removeBtn.style.flexShrink = '0';
+            removeBtn.innerHTML = '🗑️';
+            removeBtn.onclick = () => { window.removePairRow(row); };
+            btnContainer.appendChild(removeBtn);
+        }
+
+        removeBtn.style.display = total > 5 ? 'block' : 'none';
+    });
+
+    const mainAddBtn = document.getElementById('mainAddPairBtn');
+    if (mainAddBtn) {
+        mainAddBtn.style.display = total < 10 ? 'block' : 'none';
+    }
+};
+
 function renderAddQuestion() {
     // Generate radio buttons for categories
     const cats = categoryList.map(c =>
@@ -708,24 +1123,54 @@ function renderAddQuestion() {
          </label>`
     ).join('');
 
+    let initialPairs = '';
+    for(let i=0; i<5; i++) {
+        initialPairs += `
+        <div class="pair-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+            <input type="text" class="neo-input match-left" placeholder="צד ימין (לדוגמה: לופי)" style="margin-bottom:0; flex: 1;">
+            <input type="text" class="neo-input match-right" placeholder="צד שמאל (לדוגמה: וואן פיס)" style="margin-bottom:0; flex: 1;">
+        </div>`;
+    }
+
+    setTimeout(window.updatePairButtons, 0);
+
     return `
         <div class="screen-wrapper" style="align-items: center; padding-bottom: 40px;">
             <h2 class="main-title" style="margin-top: 0;">הוסף שאלה חדשה</h2>
             
             <div style="width: 100%; max-width: 400px; text-align: right;">
-                <label class="bold">טקסט השאלה</label>
-                <input type="text" id="newQText" class="neo-input" placeholder="לדוגמא, מי היוצר של וואן פיס?">
-                
-                <label class="bold">אפשרויות (4)</label>
-                <input type="text" id="newQOpt1" class="neo-input" placeholder="אפשרות 1" oninput="updateCorrectDropdown()">
-                <input type="text" id="newQOpt2" class="neo-input" placeholder="אפשרות 2" oninput="updateCorrectDropdown()">
-                <input type="text" id="newQOpt3" class="neo-input" placeholder="אפשרות 3" oninput="updateCorrectDropdown()">
-                <input type="text" id="newQOpt4" class="neo-input" placeholder="אפשרות 4" oninput="updateCorrectDropdown()">
-                
-                <label class="bold">תשובה נכונה</label>
-                <select id="newQCorrect" class="neo-input" style="height: 58px; font-weight: bold; background-color: var(--white); -webkit-appearance: listbox;">
-                    <option value="">-- בחר את התשובה הנכונה --</option>
+                <label class="bold">סוג שאלה</label>
+                <select id="newQType" class="neo-input" style="height: 58px; font-weight: bold; background-color: var(--white);" onchange="
+                    document.getElementById('triviaFields').style.display = this.value === 'trivia' ? 'block' : 'none';
+                    document.getElementById('matchFields').style.display = this.value === 'match_pair' ? 'block' : 'none';
+                ">
+                    <option value="trivia">שאלת טריוויה (4 אפשרויות)</option>
+                    <option value="match_pair">התאמת זוגות (5-10 זוגות)</option>
                 </select>
+
+                <div id="triviaFields">
+                    <label class="bold">טקסט השאלה</label>
+                    <input type="text" id="newQText" class="neo-input" placeholder="לדוגמא, מי היוצר של וואן פיס?">
+                    
+                    <label class="bold">אפשרויות (4)</label>
+                    <input type="text" id="newQOpt1" class="neo-input" placeholder="אפשרות 1" oninput="updateCorrectDropdown()">
+                    <input type="text" id="newQOpt2" class="neo-input" placeholder="אפשרות 2" oninput="updateCorrectDropdown()">
+                    <input type="text" id="newQOpt3" class="neo-input" placeholder="אפשרות 3" oninput="updateCorrectDropdown()">
+                    <input type="text" id="newQOpt4" class="neo-input" placeholder="אפשרות 4" oninput="updateCorrectDropdown()">
+                    
+                    <label class="bold">תשובה נכונה</label>
+                    <select id="newQCorrect" class="neo-input" style="height: 58px; font-weight: bold; background-color: var(--white); -webkit-appearance: listbox;">
+                        <option value="">-- בחר את התשובה הנכונה --</option>
+                    </select>
+                </div>
+
+                <div id="matchFields" style="display: none;">
+                    <label class="bold">זוגות להתאמה (מינימום 5)</label>
+                    <div id="pairsContainer">
+                        ${initialPairs}
+                    </div>
+                    <button class="neo-button bg-Back" id="mainAddPairBtn" style="height: 40px; padding: 0; margin-top: 10px;" onclick="window.addPairRow()">+ הוסף זוג</button>
+                </div>
             </div>
             
             <div class="spacer-sm"></div>
@@ -741,53 +1186,80 @@ function renderAddQuestion() {
 }
 
 async function saveNewQuestion() {
-    const qText = document.getElementById('newQText').value.trim();
-    const opt1 = document.getElementById('newQOpt1').value.trim();
-    const opt2 = document.getElementById('newQOpt2').value.trim();
-    const opt3 = document.getElementById('newQOpt3').value.trim();
-    const opt4 = document.getElementById('newQOpt4').value.trim();
-    const correct = document.getElementById('newQCorrect').value;
     const category = document.querySelector('input[name="newQCategory"]:checked').value;
-
-    const opts = [opt1, opt2, opt3, opt4];
-
-    // Basic validation
-    if (!qText || opts.some(o => !o) || !correct) {
-        showToast("נא למלא את כל השדות!", 'error');
-        return;
-    }
-
+    const qType = document.getElementById('newQType').value;
+    const src = state.currentLang.code;
+    
     // UI Feedback
     const btn = document.getElementById('saveQBtn');
     btn.innerText = "מתרגם ושומר...";
     btn.disabled = true;
 
     try {
-        const src = state.currentLang.code;
+        let newQuestion = { category, type: qType };
 
-        // Translate question text into all 4 languages
-        const tQ = await translateToAllLangs(qText, src);
+        if (qType === 'trivia') {
+            const qText = document.getElementById('newQText').value.trim();
+            const opts = [
+                document.getElementById('newQOpt1').value.trim(),
+                document.getElementById('newQOpt2').value.trim(),
+                document.getElementById('newQOpt3').value.trim(),
+                document.getElementById('newQOpt4').value.trim()
+            ];
+            const correct = document.getElementById('newQCorrect').value;
 
-        // Translate each option into all 4 languages in parallel
-        const translatedOpts = await Promise.all(opts.map(o => translateToAllLangs(o, src)));
+            if (!qText || opts.some(o => !o) || !correct) {
+                showToast("נא למלא את כל השדות!", 'error');
+                btn.innerText = "שמור שאלה"; btn.disabled = false;
+                return;
+            }
 
-        // Build optionsMap: { en: [...], he: [...], ar: [...], ru: [...] }
-        const tO = {
-            en: translatedOpts.map(t => t.en),
-            he: translatedOpts.map(t => t.he),
-            ar: translatedOpts.map(t => t.ar),
-            ru: translatedOpts.map(t => t.ru)
-        };
+            const tQ = await translateToAllLangs(qText, src);
+            const translatedOpts = await Promise.all(opts.map(o => translateToAllLangs(o, src)));
+            const tO = {
+                en: translatedOpts.map(t => t.en), he: translatedOpts.map(t => t.he),
+                ar: translatedOpts.map(t => t.ar), ru: translatedOpts.map(t => t.ru)
+            };
+            const tA = await translateToAllLangs(correct, src);
 
-        // Translate the correct answer into all 4 languages
-        const tA = await translateToAllLangs(correct, src);
+            newQuestion.textMap = tQ;
+            newQuestion.optionsMap = tO;
+            newQuestion.correctMap = tA;
 
-        const newQuestion = {
-            category: category,
-            textMap: tQ,
-            optionsMap: tO,
-            correctMap: tA
-        };
+        } else if (qType === 'match_pair') {
+            const leftInputs = Array.from(document.querySelectorAll('.match-left')).map(i => i.value.trim());
+            const rightInputs = Array.from(document.querySelectorAll('.match-right')).map(i => i.value.trim());
+            
+            const pairs = [];
+            for (let i = 0; i < leftInputs.length; i++) {
+                if (leftInputs[i] && rightInputs[i]) {
+                    pairs.push({ left: leftInputs[i], right: rightInputs[i] });
+                }
+            }
+
+            if (pairs.length < 5) {
+                showToast("יש להזין לפחות 5 זוגות מלאים!", 'error');
+                btn.innerText = "שמור שאלה"; btn.disabled = false;
+                return;
+            }
+
+            // Translate all pairs
+            const translatedPairs = await Promise.all(pairs.map(async p => {
+                const tLeft = await translateToAllLangs(p.left, src);
+                const tRight = await translateToAllLangs(p.right, src);
+                return { leftMap: tLeft, rightMap: tRight };
+            }));
+
+            // Structure pairs for easy retrieval: pairsMap: { en: [{left, right}], he: [{left, right}]... }
+            const pairsMap = { en: [], he: [], ar: [], ru: [] };
+            translatedPairs.forEach(tp => {
+                ['en', 'he', 'ar', 'ru'].forEach(lang => {
+                    pairsMap[lang].push({ left: tp.leftMap[lang], right: tp.rightMap[lang] });
+                });
+            });
+
+            newQuestion.pairsMap = pairsMap;
+        }
 
         // Save to Firebase Firestore
         await window.addDoc(window.collection(window.db, "questions"), newQuestion);
@@ -797,8 +1269,7 @@ async function saveNewQuestion() {
     } catch (error) {
         console.error("Error saving question:", error);
         showToast("שגיאה בשמירת השאלה: " + error.message, 'error', 5000);
-        const btn2 = document.getElementById('saveQBtn');
-        if (btn2) { btn2.innerText = "שמור שאלה"; btn2.disabled = false; }
+        btn.innerText = "שמור שאלה"; btn.disabled = false;
     }
 }
 
@@ -848,38 +1319,37 @@ window.navigate = (screen) => {
     state.currentScreen = screen; 
     render(); 
 };
-window.setMode = (mode) => {
+window.setMode = (mode, isMulti) => {
     state.selectedMode = mode;
-    if (mode === 'MULTIPLAYER') {
-        state.isMultiplayer = true;
+    state.isMultiplayer = isMulti;
+    if (isMulti) {
         navigate('MULTIPLAYER_MENU');
     } else if (mode === 'BET_BURN') {
-        state.isMultiplayer = false;
         navigate('BET_MENU');
     } else {
-        state.isMultiplayer = false;
         navigate('SUBJECTS');
     }
 };
 window.startPlay = (cat) => {
     state.activeCategory = cat;
 
-    // Filter questions by category
     let playlist = state.questionBank.filter(q => q.category === cat);
 
-    // Clone questions to shuffle their options independently without affecting the global bank
-    playlist = playlist.map(q => {
-        const clonedQ = { ...q, optionsMap: {} };
-        for (let lang in q.optionsMap) {
-            clonedQ.optionsMap[lang] = shuffleArray(q.optionsMap[lang]);
-        }
-        return clonedQ;
-    });
+    if (state.selectedMode === 'MATCH_PAIRS') {
+        playlist = playlist.filter(q => q.type === 'match_pair');
+        state.currentPlayList = shuffleArray(playlist);
+    } else {
+        playlist = playlist.filter(q => q.type !== 'match_pair');
+        playlist = playlist.map(q => {
+            const clonedQ = { ...q, optionsMap: {} };
+            for (let lang in q.optionsMap) {
+                clonedQ.optionsMap[lang] = shuffleArray(q.optionsMap[lang]);
+            }
+            return clonedQ;
+        });
+        state.currentPlayList = shuffleArray(playlist);
+    }
 
-    // Shuffle the overall question order
-    state.currentPlayList = shuffleArray(playlist);
-
-    // Reset variables
     state.currentIndex = 0; state.score = 0;
 
     // Persist energy across subjects
@@ -890,9 +1360,15 @@ window.startPlay = (cat) => {
     state.rank = 0; state.climbLastResult = null;
     state.currentPhase = 'BETTING'; state.userBetInput = '';
     state.selectedOption = null;
+    state.isWaitingForOthers = false;
+
+    // Match Pairs State
+    state.matchSelections = { left: null, right: null };
+    state.matchedPairsCount = 0; // within the current question
+    state.currentMatchPool = null;
 
     if (state.currentPlayList.length > 0) {
-        navigate(state.selectedMode === 'BET_BURN' ? 'PLAYING_BET' : state.selectedMode === 'CLIMB' ? 'PLAYING_CLIMB' : 'PLAYING_CLASSIC');
+        navigate(state.selectedMode === 'BET_BURN' ? 'PLAYING_BET' : state.selectedMode === 'CLIMB' ? 'PLAYING_CLIMB' : state.selectedMode === 'MATCH_PAIRS' ? 'PLAYING_MATCH_PAIRS' : 'PLAYING_CLASSIC');
     } else {
         showToast("לא נמצאו שאלות עבור נושא זה. אנא הוסף שאלות חדשות!", 'info', 4000);
     }
@@ -928,35 +1404,45 @@ window.checkAnswer = () => {
 
     setTimeout(async () => {
         state.isAnimatingResult = false;
-        if (isCorrect) state.score++;
 
-        if (state.isMultiplayer) {
+        if (state.isMultiplayer && state.selectedMode === 'CLASSIC') {
             try {
-                // Update specific player inside the players object
-                const updatePath = `players.${state.myPlayerName}.score`;
                 await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-                    [updatePath]: state.score
+                    [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
                 });
-            } catch (e) { console.error("Error syncing score:", e); }
-        }
-
-        if (state.currentIndex < state.currentPlayList.
-            length - 1) {
-            state.currentIndex++;
-            state.selectedOption = null;
-            state.questionTimer = 15; // Reset timer for next question
-            render();
+                state.isWaitingForOthers = true;
+                render();
+            } catch (e) { console.error("Error submitting answer:", e); }
         } else {
+            if (isCorrect) state.score++;
+
             if (state.isMultiplayer) {
                 try {
-                    const updatePath = `players.${state.myPlayerName}.finished`;
+                    // Update specific player inside the players object
+                    const updatePath = `players.${state.myPlayerName}.score`;
                     await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-                        [updatePath]: true
+                        [updatePath]: state.score
                     });
-                } catch (e) { console.error("Error finishing match:", e); }
-                navigate('MULTIPLAYER_WAIT');
+                } catch (e) { console.error("Error syncing score:", e); }
+            }
+
+            if (state.currentIndex < state.currentPlayList.length - 1) {
+                state.currentIndex++;
+                state.selectedOption = null;
+                state.questionTimer = 15; // Reset timer for next question
+                render();
             } else {
-                navigate('GAME_OVER');
+                if (state.isMultiplayer) {
+                    try {
+                        const updatePath = `players.${state.myPlayerName}.finished`;
+                        await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                            [updatePath]: true
+                        });
+                    } catch (e) { console.error("Error finishing match:", e); }
+                    navigate('MULTIPLAYER_WAIT');
+                } else {
+                    navigate('GAME_OVER');
+                }
             }
         }
     }, 1200);
@@ -994,7 +1480,7 @@ window.checkClimbAnswer = () => {
     render();
 
     setTimeout(() => {
-        const finalizeAndNavigate = () => {
+        const finalizeAndNavigate = async () => {
             state.isAnimatingResult = false;
             if (isCorrect) {
                 state.rank = Math.min(10, state.rank + 1);
@@ -1003,8 +1489,21 @@ window.checkClimbAnswer = () => {
                 state.rank = Math.max(-1, state.rank - 1);
                 state.climbLastResult = 'down';
             }
-            state.currentIndex++;
-            navigate('CLIMB_RESULT');
+
+            if (state.isMultiplayer) {
+                try {
+                    const updatePath = `players.${state.myPlayerName}.score`;
+                    await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                        [updatePath]: state.rank,
+                        [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
+                    });
+                    state.isWaitingForOthers = true;
+                    navigate('CLIMB_RESULT');
+                } catch (e) { console.error("Error syncing score:", e); }
+            } else {
+                state.currentIndex++;
+                navigate('CLIMB_RESULT');
+            }
         };
 
         const wrapper = document.querySelector('.screen-wrapper');
@@ -1027,7 +1526,7 @@ window.checkBetAnswer = () => {
     state.lastResultIsCorrect = isCorrect;
     render();
 
-    setTimeout(() => {
+    setTimeout(async () => {
         state.isAnimatingResult = false;
 
         if (isCorrect) {
@@ -1036,19 +1535,37 @@ window.checkBetAnswer = () => {
             state.energy -= bet;
         }
 
-        // Save latest points to local database
         localStorage.setItem('otakuBetBurnEnergy', state.energy);
 
-        if (state.energy <= 0) {
-            navigate('GAME_OVER');
-        } else if (state.currentIndex >= Math.min(state.currentPlayList.length - 1, 9)) {
-            navigate('GAME_OVER');
+        if (state.isMultiplayer) {
+            try {
+                const updatePath = `players.${state.myPlayerName}.score`;
+                let payload = {
+                    [updatePath]: state.energy,
+                    [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
+                };
+                if (state.energy <= 0) {
+                    payload[`players.${state.myPlayerName}.finished`] = true;
+                }
+                await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
+                
+                if (state.energy <= 0) {
+                    navigate('MULTIPLAYER_WAIT');
+                } else {
+                    state.isWaitingForOthers = true;
+                    render();
+                }
+            } catch (e) { console.error("Error syncing score:", e); }
         } else {
-            state.userBetInput = '';
-            state.selectedOption = null;
-            state.currentPhase = 'BETTING';
-            state.currentIndex++;
-            render();
+            if (state.energy <= 0 || state.currentIndex >= Math.min(state.currentPlayList.length - 1, 9)) {
+                navigate('GAME_OVER');
+            } else {
+                state.userBetInput = '';
+                state.selectedOption = null;
+                state.currentPhase = 'BETTING';
+                state.currentIndex++;
+                render();
+            }
         }
     }, 1200);
 };
@@ -1090,19 +1607,22 @@ function renderMultiplayerMenu() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('mode_multiplayer')}</h2>
             <div class="button-group">
-                <label class="bold color-indigo" style="font-size:18px;">מספר שחקנים מקסימלי:</label>
-                <select id="maxPlayersInput" class="neo-input" style="margin-bottom: 15px; font-weight: bold; background-color: var(--white); font-size:18px; text-align:center;">
-                    <option value="2">2 שחקנים</option>
-                    <option value="3">3 שחקנים</option>
-                    <option value="4">4 שחקנים</option>
-                    <option value="5">5 שחקנים</option>
-                </select>
+                ${state.selectedMode === 'CLIMB' ? 
+                  `<p class="bold color-indigo" style="font-size:18px; margin-bottom:20px;">מצב הטיפוס מוגבל ל-2 שחקנים</p>` :
+                  `<label class="bold color-indigo" style="font-size:18px;">מספר שחקנים מקסימלי:</label>
+                   <select id="maxPlayersInput" class="neo-input" style="margin-bottom: 15px; font-weight: bold; background-color: var(--white); font-size:18px; text-align:center;">
+                       <option value="2">2 שחקנים</option>
+                       <option value="3">3 שחקנים</option>
+                       <option value="4">4 שחקנים</option>
+                       <option value="5">5 שחקנים</option>
+                   </select>`
+                }
                 <button class="neo-button bg-coral" style="height:60px;" onclick="createMultiplayerRoom()">צור חדר (מארח)</button>
                 <div class="spacer-lg"></div>
                 <input type="text" id="joinCodeInput" class="neo-input" placeholder="הכנס קוד חדר" style="text-align: center; font-size: 24px; text-transform: uppercase; margin-bottom: 12px;">
                 <button class="neo-button bg-teal" style="height:60px;" onclick="joinMultiplayerRoom()">הצטרף לחדר</button>
                 <div class="spacer-lg"></div>
-                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MODE_SELECT')">${getString('back')}</button>
+                <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('back')}</button>
             </div>
         </div>
     `;
@@ -1116,7 +1636,7 @@ window.createMultiplayerRoom = async () => {
         localStorage.setItem('otakuPlayerName', name);
     }
 
-    const maxPlayers = parseInt(document.getElementById('maxPlayersInput').value) || 2;
+    const maxPlayers = state.selectedMode === 'CLIMB' ? 2 : (parseInt(document.getElementById('maxPlayersInput')?.value) || 2);
     state.maxPlayers = maxPlayers;
 
     // Generate 4-char code
@@ -1144,7 +1664,10 @@ window.createMultiplayerRoom = async () => {
             maxPlayers: maxPlayers,
             hostName: name,
             players: state.multiplayerPlayers,
-            playlist: shuffled
+            playlist: shuffled,
+            gameMode: state.selectedMode,
+            currentQuestionIndex: 0,
+            answers: {}
         });
 
         listenToRoom(code);
@@ -1196,6 +1719,7 @@ window.joinMultiplayerRoom = async () => {
         state.myPlayerName = finalName;
         state.currentPlayList = data.playlist;
         state.maxPlayers = data.maxPlayers;
+        state.selectedMode = data.gameMode || 'CLASSIC';
 
         const newPlayers = { ...data.players, [finalName]: { score: 0, finished: false, isHost: false } };
 
@@ -1209,7 +1733,19 @@ window.joinMultiplayerRoom = async () => {
         if (Object.keys(newPlayers).length >= data.maxPlayers) {
             state.currentIndex = 0;
             state.score = 0;
-            navigate('PLAYING_CLASSIC');
+            state.rank = 0;
+            state.energy = 100;
+            state.climbLastResult = null;
+            state.currentPhase = 'BETTING';
+            state.userBetInput = '';
+
+            if (state.selectedMode === 'BET_BURN') {
+                navigate('PLAYING_BET');
+            } else if (state.selectedMode === 'CLIMB') {
+                navigate('PLAYING_CLIMB');
+            } else {
+                navigate('PLAYING_CLASSIC');
+            }
         } else {
             navigate('MULTIPLAYER_LOBBY');
         }
@@ -1239,16 +1775,91 @@ function listenToRoom(code) {
 
         if (data.status === 'playing' && state.currentScreen === 'MULTIPLAYER_LOBBY') {
             state.currentPlayList = data.playlist;
+            state.selectedMode = data.gameMode || 'CLASSIC';
             state.currentIndex = 0;
             state.score = 0;
-            navigate('PLAYING_CLASSIC');
+            state.rank = 0;
+            state.energy = 100;
+            state.climbLastResult = null;
+            state.currentPhase = 'BETTING';
+            state.userBetInput = '';
+            state.isWaitingForOthers = false;
+
+            if (state.selectedMode === 'BET_BURN') {
+                navigate('PLAYING_BET');
+            } else if (state.selectedMode === 'CLIMB') {
+                navigate('PLAYING_CLIMB');
+            } else {
+                navigate('PLAYING_CLASSIC');
+            }
         }
 
-        if (state.currentScreen === 'MULTIPLAYER_WAIT') {
-            const allFinished = Object.values(state.multiplayerPlayers).every(p => p.finished);
+        if (data.status === 'playing') {
+            if (state.multiplayerPlayers[state.myPlayerName]) {
+                const s = state.multiplayerPlayers[state.myPlayerName].score || 0;
+                if (state.selectedMode === 'CLASSIC') state.score = s;
+                else if (state.selectedMode === 'CLIMB') state.rank = s;
+                else if (state.selectedMode === 'BET_BURN') state.energy = s;
+            }
+
+            if (data.currentQuestionIndex > state.currentIndex) {
+                state.currentIndex = data.currentQuestionIndex;
+                state.isWaitingForOthers = false;
+                state.selectedOption = null;
+                if (state.selectedMode === 'BET_BURN') state.currentPhase = 'BETTING';
+                if (state.timerInterval) {
+                    clearQuestionTimer();
+                    startQuestionTimer();
+                }
+                render();
+            }
+
+            if (state.isHost) {
+                const answers = data.answers || {};
+                const activePlayers = Object.entries(data.players).filter(([_, p]) => !p.finished);
+                const activePlayerNames = activePlayers.map(([name, _]) => name);
+                const validAnswersCount = activePlayerNames.filter(name => answers[name]).length;
+
+                if (validAnswersCount === activePlayerNames.length && activePlayerNames.length > 0) {
+                    let updates = {};
+
+                    if (state.selectedMode === 'CLASSIC') {
+                        let sortedAnswers = Object.entries(answers).map(([name, ans]) => ({ name, ...ans }));
+                        sortedAnswers.sort((a, b) => a.time - b.time);
+
+                        let pPoints = Object.keys(data.players).length;
+
+                        sortedAnswers.forEach(ans => {
+                            let currentScore = data.players[ans.name].score || 0;
+                            if (ans.isCorrect) {
+                                updates[`players.${ans.name}.score`] = currentScore + pPoints;
+                                pPoints--;
+                            }
+                        });
+                    }
+
+                    updates[`answers`] = {};
+                    
+                    if (data.currentQuestionIndex >= data.playlist.length - 1) {
+                        Object.keys(data.players).forEach(p => {
+                            updates[`players.${p}.finished`] = true;
+                        });
+                    } else {
+                        updates[`currentQuestionIndex`] = data.currentQuestionIndex + 1;
+                    }
+                    window.updateDoc(window.doc(window.db, "rooms", code), updates);
+                }
+            }
+        }
+
+        const activeScreens = ['MULTIPLAYER_WAIT', 'PLAYING_CLASSIC', 'PLAYING_CLIMB', 'PLAYING_BET', 'CLIMB_RESULT'];
+        if (activeScreens.includes(state.currentScreen)) {
+            const allFinished = Object.keys(state.multiplayerPlayers).length > 0 && Object.values(state.multiplayerPlayers).every(p => p.finished);
             if (allFinished) {
-                navigate('MULTIPLAYER_RESULTS');
-            } else {
+                if (state.currentScreen !== 'MULTIPLAYER_RESULTS') {
+                    navigate('MULTIPLAYER_RESULTS');
+                }
+            } else if (state.currentScreen === 'MULTIPLAYER_WAIT') {
                 render(); // update leaderboard live
             }
         }
@@ -1295,10 +1906,11 @@ function renderMultiplayerWaitScreen() {
 
     const leaderboardHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
         return `
         <div style="display:flex; justify-content:space-between; align-items:center; background:${isMe ? 'var(--vibrant-indigo)' : 'var(--white)'}; color:${isMe ? 'var(--white)' : 'var(--app-text)'}; padding:10px 15px; margin:5px 0; border-radius:8px; border: 2px solid var(--app-text); font-weight:bold;">
             <div>#${idx + 1} &nbsp; ${pName} ${pData.finished ? '✅' : '⏳'}</div>
-            <div dir="ltr">${pData.score} / 10</div>
+            <div dir="ltr">${scoreDisplay}</div>
         </div>`;
     }).join('');
 
@@ -1329,6 +1941,7 @@ function renderMultiplayerResults() {
 
     const podiumHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
         let medal = '';
         if (idx === 0) medal = '🥇';
         else if (idx === 1) medal = '🥈';
@@ -1336,7 +1949,7 @@ function renderMultiplayerResults() {
         return `
         <div style="display:flex; justify-content:space-between; align-items:center; background:${isMe ? 'var(--vibrant-indigo)' : 'var(--white)'}; color:${isMe ? 'var(--white)' : 'var(--app-text)'}; padding:15px; margin:5px 0; border-radius:8px; border: 3px solid var(--app-text); font-weight:bold; font-size:20px;">
             <div>${medal} #${idx + 1} &nbsp; ${pName}</div>
-            <div dir="ltr">${pData.score} / 10</div>
+            <div dir="ltr">${scoreDisplay}</div>
         </div>`;
     }).join('');
 
