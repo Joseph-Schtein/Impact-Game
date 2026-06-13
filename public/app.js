@@ -234,11 +234,11 @@ function renderModeSelect() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('mode_title')}</h2>
             <div class="button-group">
-                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', false)"><i class="uil uil-question"></i> ${getString('mode_classic')}</button>
-                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', false)"><i class="uil uil-mountains-sun"></i> ${getString('mode_climb')}</button>
-                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', false)"><i class="uil uil-dollar-alt"></i> ${getString('mode_bet')}</button>
-                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: rgb(155, 193, 255); color: var(--app-text);" onclick="setMode('MATCH_PAIRS', false)"><i class="uil uil-puzzle-piece"></i> התאמת זוגות</button>
-                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', false)"><i class="uil uil-bullseye"></i> איש תלוי</button>
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', false)"><i class="uil uil-question mobile-cycle-1"></i> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', false)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
+                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', false)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: rgb(155, 193, 255); color: var(--app-text);" onclick="setMode('MATCH_PAIRS', false)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
+                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', false)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
@@ -250,11 +250,11 @@ function renderModeSelectMulti() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('multi_btn')}</h2>
             <div class="button-group">
-                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', true)"><i class="uil uil-question"></i> ${getString('mode_classic')}</button>
-                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', true)"><i class="uil uil-mountains-sun"></i> ${getString('mode_climb')}</button>
-                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', true)"><i class="uil uil-dollar-alt"></i> ${getString('mode_bet')}</button>
-                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: rgb(155, 193, 255); color: var(--app-text);" onclick="setMode('MATCH_PAIRS', true)"><i class="uil uil-puzzle-piece"></i> התאמת זוגות</button>
-                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', true)"><i class="uil uil-bullseye"></i> איש תלוי</button>
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', true)"><i class="uil uil-question mobile-cycle-1"></i> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', true)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
+                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', true)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: rgb(155, 193, 255); color: var(--app-text);" onclick="setMode('MATCH_PAIRS', true)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
+                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', true)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>

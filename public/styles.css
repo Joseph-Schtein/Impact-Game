@@ -902,3 +902,25 @@ h2 {
     0%   { opacity: 0; transform: scale(1.4); }
     100% { opacity: 1; transform: scale(1);   }
 }
+
+/* Mobile Icon Cycle Animation */
+@media (max-width: 768px) {
+    @keyframes iconMobileCycle {
+        0%, 4.8%, 9.6%, 14.4%, 16%, 100% { transform: rotate(0deg) scale(1); }
+        1.2%, 6.0%, 10.8% { transform: rotate(-12deg) scale(1.15); }
+        2.4%, 7.2%, 12.0% { transform: rotate(12deg) scale(1.15); }
+        3.6%, 8.4%, 13.2% { transform: rotate(-12deg) scale(1.15); }
+    }
+
+    /* Disable the hover animation on mobile to avoid conflicts */
+    .neo-button:hover i.uil {
+        animation: none;
+    }
+
+    /* Apply the continuous cycling animation */
+    i.uil.mobile-cycle-1 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 0s; }
+    i.uil.mobile-cycle-2 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 2.5s; }
+    i.uil.mobile-cycle-3 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 5s; }
+    i.uil.mobile-cycle-4 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 7.5s; }
+    i.uil.mobile-cycle-5 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 10s; }
+}
