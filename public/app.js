@@ -223,7 +223,7 @@ function renderMenu() {
             <h1 class="main-title">${getString('menu_title')}</h1>
             <div class="button-group">
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('single_btn')}</button>
-                <button class="neo-button bg-Back" style="height:60px; margin-top: 12px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('multi_btn')}</button>
+                <button class="neo-button bg-multiplayer" style="height:60px; margin-top: 12px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('multi_btn')}</button>
                 <button class="neo-button bg-coral" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
             </div>
         </div>`;
@@ -235,10 +235,10 @@ function renderModeSelect() {
             <h2 class="main-title">${getString('mode_title')}</h2>
             <div class="button-group">
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', false)"><i class="uil uil-question mobile-cycle-1"></i> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-multiplayer" style="height:60px;" onclick="setMode('MATCH_PAIRS', false)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
                 <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', false)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
-                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', false)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
-                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: rgb(155, 193, 255); color: var(--app-text);" onclick="setMode('MATCH_PAIRS', false)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
-                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', false)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
+                <button class="neo-button bg-teal" style="height:60px; margin-top:12px;" onclick="setMode('BET_BURN', false)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-periwinkle" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', false)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
@@ -251,10 +251,10 @@ function renderModeSelectMulti() {
             <h2 class="main-title">${getString('multi_btn')}</h2>
             <div class="button-group">
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', true)"><i class="uil uil-question mobile-cycle-1"></i> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-multiplayer" style="height:60px;" onclick="setMode('MATCH_PAIRS', true)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
                 <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', true)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
-                <button class="neo-button bg-teal" style="height:60px;" onclick="setMode('BET_BURN', true)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
-                <button class="neo-button bg-indigo" style="height:60px; margin-top:12px; background-color: rgb(155, 193, 255); color: var(--app-text);" onclick="setMode('MATCH_PAIRS', true)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
-                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', true)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
+                <button class="neo-button bg-teal" style="height:60px; margin-top:12px;" onclick="setMode('BET_BURN', true)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-periwinkle" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', true)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
@@ -1110,12 +1110,14 @@ window.updatePairButtons = () => {
             removeBtn.style.padding = '0';
             removeBtn.style.margin = '0';
             removeBtn.style.flexShrink = '0';
-            removeBtn.innerHTML = '🗑️';
+            removeBtn.style.alignItems = 'center';
+            removeBtn.style.justifyContent = 'center';
+            removeBtn.innerHTML = '<i class="uil uil-trash-alt" style="font-size: 24px; margin: 0; padding: 0;"></i>';
             removeBtn.onclick = () => { window.removePairRow(row); };
             btnContainer.appendChild(removeBtn);
         }
 
-        removeBtn.style.display = total > 5 ? 'block' : 'none';
+        removeBtn.style.display = total > 5 ? 'flex' : 'none';
     });
 
     const mainAddBtn = document.getElementById('mainAddPairBtn');
@@ -1180,7 +1182,7 @@ function renderAddQuestion() {
                     <div id="pairsContainer">
                         ${initialPairs}
                     </div>
-                    <button class="neo-button bg-Back" id="mainAddPairBtn" style="height: 40px; padding: 0; margin-top: 10px;" onclick="window.addPairRow()">+ הוסף זוג</button>
+                    <button class="neo-button bg-multiplayer" id="mainAddPairBtn" style="height: 40px; padding: 0; margin-top: 10px;" onclick="window.addPairRow()">+ הוסף זוג</button>
                 </div>
 
                 <div id="hangmanFields" style="display: none;">

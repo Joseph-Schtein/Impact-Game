@@ -15,8 +15,9 @@
     --accent-teal: hsl(177, 68%, 55%);
     /* brighter teal */
     /* Used for progress bars and highlights */
-    --accent-Back: rgb(194, 203, 255);
-
+    --accent-Back: rgb(255, 173, 102);
+    --accent-multiplayer: rgb(155, 193, 255);
+    --accent-periwinkle: rgb(217, 163, 255);
 
     --white: #ffffff;
 }
@@ -174,11 +175,25 @@ h2 {
 
 /* Icon Animations inside buttons */
 @keyframes iconWobble {
-    0% { transform: rotate(0deg) scale(1); }
-    25% { transform: rotate(-12deg) scale(1.15); }
-    50% { transform: rotate(12deg) scale(1.15); }
-    75% { transform: rotate(-12deg) scale(1.15); }
-    100% { transform: rotate(0deg) scale(1); }
+    0% {
+        transform: rotate(0deg) scale(1);
+    }
+
+    25% {
+        transform: rotate(-12deg) scale(1.15);
+    }
+
+    50% {
+        transform: rotate(12deg) scale(1.15);
+    }
+
+    75% {
+        transform: rotate(-12deg) scale(1.15);
+    }
+
+    100% {
+        transform: rotate(0deg) scale(1);
+    }
 }
 
 .neo-button i.uil {
@@ -206,6 +221,12 @@ h2 {
     color: var(--app-text);
 }
 
+.neo-button.bg-multiplayer {
+    background-color: var(--accent-multiplayer);
+    border-color: var(--app-text);
+    color: var(--app-text);
+}
+
 .neo-button.bg-indigo {
     background-color: var(--accent-cyan);
     border-color: var(--app-text);
@@ -217,6 +238,12 @@ h2 {
     border-color: var(--app-text);
     color: var(--app-text);
     /* navy on teal = 6.3:1 ✅ */
+}
+
+.neo-button.bg-periwinkle {
+    background-color: var(--accent-periwinkle);
+    border-color: var(--app-text);
+    color: var(--app-text);
 }
 
 /* Result Feedback Buttons */
@@ -639,7 +666,7 @@ h2 {
 }
 
 .hangman-letter-box.revealed {
-    animation: letterReveal 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    animation: letterReveal 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     color: var(--app-text);
 }
 
@@ -649,8 +676,15 @@ h2 {
 }
 
 @keyframes letterReveal {
-    0%   { transform: scale(1.5) translateY(-6px); opacity: 0; }
-    100% { transform: scale(1)   translateY(0);    opacity: 1; }
+    0% {
+        transform: scale(1.5) translateY(-6px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
 
 /* On-screen keyboard */
@@ -768,7 +802,7 @@ h2 {
 
 .hangman-divider {
     width: 2px;
-    background: linear-gradient(to bottom, transparent, rgba(33,2,110,0.18), transparent);
+    background: linear-gradient(to bottom, transparent, rgba(33, 2, 110, 0.18), transparent);
     align-self: stretch;
     margin: 0 4px;
     border-radius: 2px;
@@ -801,7 +835,7 @@ h2 {
     font-size: 11px;
     border-radius: 5px;
     border-width: 1.5px;
-    box-shadow: 0 2px 0 rgba(33,2,110,0.2);
+    box-shadow: 0 2px 0 rgba(33, 2, 110, 0.2);
 }
 
 .hangman-wrong-list.small {
@@ -843,8 +877,13 @@ h2 {
 }
 
 @keyframes overlayIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .hangman-overlay-box {
@@ -859,12 +898,19 @@ h2 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: overlayBoxIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    animation: overlayBoxIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes overlayBoxIn {
-    from { transform: scale(0.85) translateY(20px); opacity: 0; }
-    to   { transform: scale(1)    translateY(0);    opacity: 1; }
+    from {
+        transform: scale(0.85) translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
 
 /* ── Word Chips (Add Word Screen) ── */
@@ -899,17 +945,49 @@ h2 {
 
 /* @keyframes for hangman body-part pop */
 @keyframes hangmanPop {
-    0%   { opacity: 0; transform: scale(1.4); }
-    100% { opacity: 1; transform: scale(1);   }
+    0% {
+        opacity: 0;
+        transform: scale(1.4);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
+
+
 
 /* Mobile Icon Cycle Animation */
 @media (max-width: 768px) {
     @keyframes iconMobileCycle {
-        0%, 4.8%, 9.6%, 14.4%, 16%, 100% { transform: rotate(0deg) scale(1); }
-        1.2%, 6.0%, 10.8% { transform: rotate(-12deg) scale(1.15); }
-        2.4%, 7.2%, 12.0% { transform: rotate(12deg) scale(1.15); }
-        3.6%, 8.4%, 13.2% { transform: rotate(-12deg) scale(1.15); }
+
+        0%,
+        4.8%,
+        9.6%,
+        14.4%,
+        16%,
+        100% {
+            transform: rotate(0deg) scale(1);
+        }
+
+        1.2%,
+        6.0%,
+        10.8% {
+            transform: rotate(-12deg) scale(1.15);
+        }
+
+        2.4%,
+        7.2%,
+        12.0% {
+            transform: rotate(12deg) scale(1.15);
+        }
+
+        3.6%,
+        8.4%,
+        13.2% {
+            transform: rotate(-12deg) scale(1.15);
+        }
     }
 
     /* Disable the hover animation on mobile to avoid conflicts */
@@ -918,9 +996,28 @@ h2 {
     }
 
     /* Apply the continuous cycling animation */
-    i.uil.mobile-cycle-1 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 0s; }
-    i.uil.mobile-cycle-2 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 2.5s; }
-    i.uil.mobile-cycle-3 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 5s; }
-    i.uil.mobile-cycle-4 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 7.5s; }
-    i.uil.mobile-cycle-5 { animation: iconMobileCycle 12.5s linear infinite; animation-delay: 10s; }
+    i.uil.mobile-cycle-1 {
+        animation: iconMobileCycle 12.5s linear infinite;
+        animation-delay: 0s;
+    }
+
+    i.uil.mobile-cycle-2 {
+        animation: iconMobileCycle 12.5s linear infinite;
+        animation-delay: 2.5s;
+    }
+
+    i.uil.mobile-cycle-3 {
+        animation: iconMobileCycle 12.5s linear infinite;
+        animation-delay: 5s;
+    }
+
+    i.uil.mobile-cycle-4 {
+        animation: iconMobileCycle 12.5s linear infinite;
+        animation-delay: 7.5s;
+    }
+
+    i.uil.mobile-cycle-5 {
+        animation: iconMobileCycle 12.5s linear infinite;
+        animation-delay: 10s;
+    }
 }
