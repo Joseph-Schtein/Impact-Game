@@ -1,0 +1,14 @@
+169         const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : `${pData.score} נק'`;
+347             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;">⏳ ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+374             <h1 class="color-indigo" style="font-size: 48px;">⚡ ${state.energy}</h1>
+383             <p class="color-coral bold" style="font-size:18px;">הימור: ⚡ ${state.userBetInput}</p>
+760             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;">⏳ ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+916         subline = '⚡ ' + state.energy;
+970             <div class="leaderboard-score">⚡ ${entry.score}</div>
+1980             <div>${pName} ${pData.isHost ? '👑' : ''}</div>
+1981             <div style="font-size: 14px;">${pData.isReady ? '✅ מוכן' : '⏳ ממתין...'}</div>
+2015         const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
+2018             <div>#${idx + 1} &nbsp; ${pName} ${pData.finished ? '✅' : '⏳'}</div>
+2050         const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
+2211             <div class="hangman-panel-title">אתה ${state.hangmanDone ? (state.hangmanWon ? '✅' : '❌') : '⏳'}</div>
+2228             <div class="hangman-panel-title">יריב ${oppDone ? (state.hangmanOpponentWon ? '✅' : '❌') : '⏳'}</div>

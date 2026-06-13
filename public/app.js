@@ -153,6 +153,7 @@ function render() {
         case 'LEADERBOARD': html = renderLeaderboard(); break;
         case 'MULTIPLAYER_MENU': html = renderMultiplayerMenu(); break;
         case 'MULTIPLAYER_LOBBY': html = renderMultiplayerLobby(); break;
+        case 'MULTIPLAYER_STARTING': html = renderMultiplayerStarting(); break;
         case 'MULTIPLAYER_WAIT': html = renderMultiplayerWaitScreen(); break;
         case 'MULTIPLAYER_RESULTS': html = renderMultiplayerResults(); break;
         case 'PLAYING_HANGMAN': html = renderHangman(); break;
@@ -166,7 +167,7 @@ function renderWaitingScreen() {
     const playersArr = Object.entries(state.multiplayerPlayers).sort((a, b) => b[1].score - a[1].score);
     const leaderboardHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
-        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : `${pData.score} נק'`;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-bolt"></i> ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : `${pData.score} נק'`;
         return `
         <div style="display:flex; justify-content:space-between; align-items:center; background:${isMe ? 'var(--vibrant-indigo)' : 'var(--white)'}; color:${isMe ? 'var(--white)' : 'var(--app-text)'}; padding:8px 12px; margin:4px 0; border-radius:8px; border: 2px solid var(--app-text); font-weight:bold; font-size: 16px; width: 100%; max-width: 300px;">
             <div>#${idx + 1} &nbsp; ${pName}</div>
@@ -178,24 +179,24 @@ function renderWaitingScreen() {
     if (state.selectedMode === 'CLASSIC') {
         const p = Object.keys(state.multiplayerPlayers).length;
         rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
-            <b class="color-coral">חוקי ניקוד:</b> העונה ראשון נכונה מקבל ${p} נק', השני ${Math.max(1, p - 1)} נק', וכו'. תשובה שגויה מעניקה 0 נק'.
+            <b>חוקי ניקוד:</b> העונה ראשון נכונה מקבל ${p} נק', השני ${Math.max(1, p - 1)} נק', וכו'. תשובה שגויה מעניקה 0 נק'.
         </p>`;
     } else if (state.selectedMode === 'CLIMB') {
         rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
-            <b class="color-coral">חוקי הטיפוס:</b> תשובה נכונה מעלה אותך שלב, שגויה מורידה אותך שלב.
+            <b>חוקי הטיפוס:</b> תשובה נכונה מעלה אותך שלב, שגויה מורידה אותך שלב.
         </p>`;
     } else if (state.selectedMode === 'BET_BURN') {
         rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
-            <b class="color-coral">חוקי הימור:</b> תשובה נכונה מוסיפה את ההימור שלך, שגויה שורפת אותו.
+            <b>חוקי הימור:</b> תשובה נכונה מוסיפה את ההימור שלך, שגויה שורפת אותו.
         </p>`;
     }
 
     return `
         <div class="screen-wrapper" style="align-items:center; justify-content:center;">
-            <h2 class="main-title" style="font-size: 26px; margin-bottom: 8px;">ממתין לשאר השחקנים...</h2>
+            <h2 class="main-title" style="font-size: 26px; margin-bottom: 8px; text-align: center;">ממתין לשאר השחקנים...</h2>
             <div class="loader" style="margin-top:10px; margin-bottom: 24px;"></div>
             
-            <p class="bold color-indigo" style="margin-bottom: 10px; font-size: 18px;">מצב נוכחי:</p>
+            <p class="bold color-indigo" style="margin-bottom: 10px; font-size: 18px; text-align: center;">מצב נוכחי:</p>
             <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
                 ${leaderboardHtml}
             </div>
@@ -234,7 +235,7 @@ function renderModeSelect() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('mode_title')}</h2>
             <div class="button-group">
-                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', false)"><i class="uil uil-question mobile-cycle-1"></i> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', false)"><i class="uil uil-question mobile-cycle-1" style="font-size: 1.5em; vertical-align: middle;"></i> ${getString('mode_classic')}</button>
                 <button class="neo-button bg-multiplayer" style="height:60px;" onclick="setMode('MATCH_PAIRS', false)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
                 <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', false)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
                 <button class="neo-button bg-teal" style="height:60px; margin-top:12px;" onclick="setMode('BET_BURN', false)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
@@ -250,7 +251,7 @@ function renderModeSelectMulti() {
         <div class="screen-wrapper">
             <h2 class="main-title">${getString('multi_btn')}</h2>
             <div class="button-group">
-                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', true)"><i class="uil uil-question mobile-cycle-1"></i> ${getString('mode_classic')}</button>
+                <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', true)"><i class="uil uil-question mobile-cycle-1" style="font-size: 1.5em; vertical-align: middle;"></i> ${getString('mode_classic')}</button>
                 <button class="neo-button bg-multiplayer" style="height:60px;" onclick="setMode('MATCH_PAIRS', true)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
                 <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', true)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
                 <button class="neo-button bg-teal" style="height:60px; margin-top:12px;" onclick="setMode('BET_BURN', true)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
@@ -311,10 +312,14 @@ function generateOptionsHTML(opts) {
             } else {
                 btnClass = 'bg-indigo toggled';
             }
-        } else if (state.isAnimatingResult && opt === correctOpt) {
-            // Reveal the correct answer in green if they guessed wrong
-            btnClass = 'bg-correct animate-pop';
-            icon = '✓ ';
+        } else if (state.isAnimatingResult) {
+            if (opt === correctOpt) {
+                btnClass = 'bg-correct animate-pop';
+                icon = '✓ ';
+            } else if (state.selectedOption === "TIMEOUT_INCORRECT" || !state.selectedOption) {
+                btnClass = 'bg-wrong animate-shake';
+                icon = '✗ ';
+            }
         }
 
         return `<button class="neo-button ${btnClass}"
@@ -342,16 +347,16 @@ function renderClassic() {
 
     return `
         <div class="screen-wrapper">
+            <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
-            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;">⏳ ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <h2 style="font-size: 20px;">${qText}</h2>
             <div class="spacer-lg"></div>
             ${generateOptionsHTML(opts)}
             <div style="margin-top:auto; width:100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                         onclick="checkAnswer()">${getString('check_btn')}</button>
-                <button class="neo-button bg-Back" style="margin-top: 12px; max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>`;
 }
@@ -371,7 +376,7 @@ function renderBetBurn() {
         const isValid = parseInt(state.userBetInput) > 0 && parseInt(state.userBetInput) <= state.energy;
         content = `
             <p class="bold">מאגר אנרגיה</p>
-            <h1 class="color-indigo" style="font-size: 48px;">⚡ ${state.energy}</h1>
+            <h1 class="color-indigo" style="font-size: 48px;"><i class="uil uil-bolt"></i> ${state.energy}</h1>
             <div class="spacer-lg"></div>
             <p>הזן את ההימור שלך (מקסימום ${state.energy}):</p>
             <input type="number" class="neo-input bet-input" value="${state.userBetInput}" oninput="updateBet(this.value)">
@@ -380,7 +385,7 @@ function renderBetBurn() {
                     onclick="lockInBet()">נעל הימור</button>`;
     } else {
         content = `
-            <p class="color-coral bold" style="font-size:18px;">הימור: ⚡ ${state.userBetInput}</p>
+            <p class="color-coral bold" style="font-size:18px;">הימור: <i class="uil uil-bolt"></i> ${state.userBetInput}</p>
             <div class="spacer-md"></div>
             <h2 style="font-size: 22px;">${qText}</h2>
             <div class="spacer-lg"></div>
@@ -393,11 +398,9 @@ function renderBetBurn() {
 
     return `
         <div class="screen-wrapper">
+            <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                 ${content}
-            </div>
-            <div style="margin-top:12px; width:100%;">
-                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>`;
 }
@@ -633,6 +636,7 @@ function renderClimb() {
 
     return `
         <div class="screen-wrapper ${screenAnimClass}" id="climb-screen">
+            <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             <!-- Mountain SVG -->
             ${buildMountainSVG(state.rank, '', oppRank, state.isMultiplayer, state.isHost)}
 
@@ -647,7 +651,6 @@ function renderClimb() {
             <div style="margin-top:auto; width:100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''}
                         onclick="checkClimbAnswer()">${getString('check_btn')}</button>
-                <button class="neo-button bg-Back" style="margin-top: 12px; max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>`;
 }
@@ -757,16 +760,14 @@ function renderMatchPairs() {
 
     return `
         <div class="screen-wrapper">
-            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;">⏳ ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+            <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
+            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <h2 style="font-size: 20px; text-align: center;">התאם את הזוגות (נקודות: ${state.score} / 25)</h2>
             
             <div class="match-container" id="match-container">
                 <svg class="match-svg-overlay" id="match-svg"></svg>
                 <div class="match-column">${leftColHtml}</div>
                 <div class="match-column">${rightColHtml}</div>
-            </div>
-            <div style="margin-top:auto; width:100%; padding-top:20px;">
-                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>
     `;
@@ -913,7 +914,7 @@ function renderGameOver() {
         }
     } else if (state.selectedMode === 'BET_BURN') {
         headline = getString('game_over');
-        subline = '⚡ ' + state.energy;
+        subline = '<i class="uil uil-bolt"></i> ' + state.energy;
         const savedName = localStorage.getItem('otakuPlayerName') || '';
         submitHtml = `
             <div style="margin-top: 24px; padding: 16px; background: rgba(33,2,110,0.05); border-radius: 16px;">
@@ -967,7 +968,7 @@ function renderLeaderboard() {
         <div class="leaderboard-item">
             <div class="leaderboard-rank">${badge}</div>
             <div class="leaderboard-name">${entry.name}</div>
-            <div class="leaderboard-score">⚡ ${entry.score}</div>
+            <div class="leaderboard-score"><i class="uil uil-bolt"></i> ${entry.score}</div>
         </div>`;
     }).join('');
 
@@ -1357,6 +1358,40 @@ function shuffleArray(array) {
     return newArr;
 }
 
+window.leaveRoom = async () => {
+    if (!state.roomId) return;
+    try {
+        const roomRef = window.doc(window.db, "rooms", state.roomId);
+        const docSnap = await window.getDoc(roomRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const newPlayers = { ...data.players };
+            delete newPlayers[state.myPlayerName];
+            
+            let updates = { players: newPlayers };
+            
+            const allFinished = Object.keys(data.players || {}).length > 0 && Object.values(data.players || {}).every(p => p.finished);
+            
+            if (!allFinished) {
+                if (state.isHost) {
+                    updates['status'] = 'killed';
+                } else if ((data.status === 'playing' || data.status === 'starting') && Object.keys(newPlayers).length <= 1) {
+                    updates['status'] = 'killed';
+                }
+            }
+            
+            await window.updateDoc(roomRef, updates);
+        }
+    } catch(e) { console.error("Error leaving room:", e); }
+    
+    if (unsubscribeMultiplayer) {
+        unsubscribeMultiplayer();
+        unsubscribeMultiplayer = null;
+    }
+    state.roomId = null;
+    state.isMultiplayer = false;
+};
+
 window.setLang = (code) => { state.currentLang = Object.values(Lang).find(l => l.code === code); render(); };
 window.navigate = (screen) => {
     if (window.clearQuestionTimer) window.clearQuestionTimer();
@@ -1367,6 +1402,10 @@ window.navigate = (screen) => {
         if (allFinished) {
             screen = 'MULTIPLAYER_RESULTS';
         }
+    }
+
+    if (screen === 'MENU' && state.roomId) {
+        window.leaveRoom();
     }
 
     state.currentScreen = screen;
@@ -1701,7 +1740,7 @@ window.createMultiplayerRoom = async () => {
     state.myPlayerName = name;
     state.multiplayerStatus = 'waiting';
     state.multiplayerPlayers = {
-        [name]: { score: 0, finished: false, isHost: true }
+        [name]: { score: 0, finished: false, isHost: true, isReady: false }
     };
 
     // Shuffle questions - pull 10 random questions from the entire bank (not used for HANGMAN)
@@ -1709,10 +1748,20 @@ window.createMultiplayerRoom = async () => {
         showToast("אין מילים להגמן! הוסף מילים תחילה.", 'error', 4000);
         return;
     }
-    const shuffled = state.selectedMode === 'HANGMAN' ? [] : [...state.questionBank].sort(() => Math.random() - 0.5).slice(0, 10).map(q => {
+    let playlist = [...state.questionBank];
+    if (state.selectedMode === 'MATCH_PAIRS') {
+        playlist = playlist.filter(q => q.type === 'match_pair');
+    } else {
+        playlist = playlist.filter(q => q.type !== 'match_pair');
+    }
+
+    const shuffled = state.selectedMode === 'HANGMAN' ? [] : playlist.sort(() => Math.random() - 0.5).slice(0, 10).map(q => {
+        if (state.selectedMode === 'MATCH_PAIRS') return q;
         const clonedQ = { ...q, optionsMap: {} };
-        for (let lang in q.optionsMap) {
-            clonedQ.optionsMap[lang] = shuffleArray(q.optionsMap[lang]);
+        if (q.optionsMap) {
+            for (let lang in q.optionsMap) {
+                clonedQ.optionsMap[lang] = shuffleArray(q.optionsMap[lang]);
+            }
         }
         return clonedQ;
     });
@@ -1781,51 +1830,27 @@ window.joinMultiplayerRoom = async () => {
         state.maxPlayers = data.maxPlayers;
         state.selectedMode = data.gameMode || 'CLASSIC';
 
-        const newPlayers = { ...data.players, [finalName]: { score: 0, finished: false, isHost: false } };
+        const newPlayers = { ...data.players, [finalName]: { score: 0, finished: false, isHost: false, isReady: false } };
 
         await window.updateDoc(roomRef, {
             players: newPlayers,
-            status: Object.keys(newPlayers).length >= data.maxPlayers ? 'playing' : 'waiting'
+            status: 'waiting'
         });
 
         listenToRoom(code);
 
-        if (Object.keys(newPlayers).length >= data.maxPlayers) {
-            state.currentIndex = 0;
-            state.score = 0;
-            state.rank = 0;
-            state.energy = 100;
-            state.climbLastResult = null;
-            state.currentPhase = 'BETTING';
-            state.userBetInput = '';
-
-            if (state.selectedMode === 'BET_BURN') {
-                navigate('PLAYING_BET');
-            } else if (state.selectedMode === 'CLIMB') {
-                navigate('PLAYING_CLIMB');
-            } else if (state.selectedMode === 'HANGMAN') {
-                initHangmanState(state.hangmanWordBank);
-                window.updateDoc(roomRef, {
-                    [`hangmanState.${finalName}`]: { wrongCount: 0, done: false }
-                }).catch(e => console.error(e));
-                navigate('PLAYING_HANGMAN');
-            } else {
-                navigate('PLAYING_CLASSIC');
-            }
-        } else {
-            navigate('MULTIPLAYER_LOBBY');
-        }
+        navigate('MULTIPLAYER_LOBBY');
     } catch (e) {
         console.error(e);
         showToast("שגיאה בהצטרפות", 'error');
     }
 };
 
-window.startGameNow = async () => {
-    if (!state.isHost) return;
+window.toggleReady = async () => {
+    const currentState = state.multiplayerPlayers[state.myPlayerName]?.isReady || false;
     try {
         await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-            status: 'playing'
+            [`players.${state.myPlayerName}.isReady`]: !currentState
         });
     } catch (e) { console.error(e); }
 };
@@ -1836,34 +1861,65 @@ function listenToRoom(code) {
     unsubscribeMultiplayer = window.onSnapshot(window.doc(window.db, "rooms", code), (doc) => {
         if (!doc.exists()) return;
         const data = doc.data();
+
+        if (data.status === 'killed') {
+            if (unsubscribeMultiplayer) {
+                unsubscribeMultiplayer();
+                unsubscribeMultiplayer = null;
+            }
+            state.roomId = null;
+            state.isMultiplayer = false;
+            showToast("המשחק בוטל מכיוון ששחקנים עזבו את החדר", "error", 4000);
+            if (state.currentScreen !== 'MENU') {
+                state.currentScreen = 'MENU';
+                render();
+            }
+            return;
+        }
+
         state.multiplayerStatus = data.status;
         state.multiplayerPlayers = data.players || {};
 
-        if (data.status === 'playing' && state.currentScreen === 'MULTIPLAYER_LOBBY') {
-            state.currentPlayList = data.playlist;
-            state.selectedMode = data.gameMode || 'CLASSIC';
-            state.currentIndex = 0;
-            state.score = 0;
-            state.rank = 0;
-            state.energy = 100;
-            state.climbLastResult = null;
-            state.currentPhase = 'BETTING';
-            state.userBetInput = '';
-            state.isWaitingForOthers = false;
+        if (data.status === 'starting' && state.currentScreen === 'MULTIPLAYER_LOBBY') {
+            state.multiplayerStartTimer = 4; // 4 seconds local countdown
+            navigate('MULTIPLAYER_STARTING');
 
-            if (state.selectedMode === 'BET_BURN') {
-                navigate('PLAYING_BET');
-            } else if (state.selectedMode === 'CLIMB') {
-                navigate('PLAYING_CLIMB');
-            } else if (state.selectedMode === 'HANGMAN') {
-                initHangmanState(state.hangmanWordBank);
-                window.updateDoc(window.doc(window.db, "rooms", code), {
-                    [`hangmanState.${state.myPlayerName}`]: { wrongCount: 0, done: false }
-                }).catch(e => console.error(e));
-                navigate('PLAYING_HANGMAN');
-            } else {
-                navigate('PLAYING_CLASSIC');
-            }
+            if (window.multiplayerStartInterval) clearInterval(window.multiplayerStartInterval);
+            window.multiplayerStartInterval = setInterval(() => {
+                state.multiplayerStartTimer--;
+                if (state.multiplayerStartTimer <= 0) {
+                    clearInterval(window.multiplayerStartInterval);
+
+                    state.currentPlayList = data.playlist;
+                    state.selectedMode = data.gameMode || 'CLASSIC';
+                    state.currentIndex = 0;
+                    state.score = 0;
+                    state.rank = 0;
+                    state.energy = 100;
+                    state.climbLastResult = null;
+                    state.currentPhase = 'BETTING';
+                    state.userBetInput = '';
+                    state.isWaitingForOthers = false;
+
+                    if (state.selectedMode === 'BET_BURN') {
+                        navigate('PLAYING_BET');
+                    } else if (state.selectedMode === 'CLIMB') {
+                        navigate('PLAYING_CLIMB');
+                    } else if (state.selectedMode === 'HANGMAN') {
+                        initHangmanState(state.hangmanWordBank);
+                        window.updateDoc(window.doc(window.db, "rooms", code), {
+                            [`hangmanState.${state.myPlayerName}`]: { wrongCount: 0, done: false }
+                        }).catch(e => console.error(e));
+                        navigate('PLAYING_HANGMAN');
+                    } else if (state.selectedMode === 'MATCH_PAIRS') {
+                        navigate('PLAYING_MATCH_PAIRS');
+                    } else {
+                        navigate('PLAYING_CLASSIC');
+                    }
+                } else {
+                    render();
+                }
+            }, 1000);
         }
 
         if (data.status === 'playing') {
@@ -1965,15 +2021,67 @@ function listenToRoom(code) {
     });
 }
 
+window.startMultiplayerGame = async () => {
+    if (!state.isHost) return;
+    const playersData = Object.values(state.multiplayerPlayers);
+    if (playersData.length <= 1) {
+        showToast("צריך לפחות 2 שחקנים כדי להתחיל!", 'error');
+        return;
+    }
+    if (!playersData.every(p => p.isReady)) {
+        showToast("לא כל השחקנים מוכנים!", 'error');
+        return;
+    }
+    try {
+        await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+            status: 'starting'
+        });
+
+        // Host sets status to playing once the game actually starts
+        setTimeout(() => {
+            window.updateDoc(window.doc(window.db, "rooms", state.roomId), { status: 'playing' }).catch(e => console.error(e));
+        }, 4000);
+    } catch (e) {
+        console.error(e);
+    }
+};
+
 function renderMultiplayerLobby() {
     const playersArr = Object.keys(state.multiplayerPlayers);
-    const playersListHtml = playersArr.map(pName =>
-        `<div style="background:var(--white); padding:10px 15px; margin:8px 0; border-radius:8px; border: 2px solid var(--app-text); font-weight:bold; font-size:18px;">
-            ${pName} ${state.multiplayerPlayers[pName].isHost ? '👑' : ''}
-        </div>`
-    ).join('');
+    const playersListHtml = playersArr.map(pName => {
+        const pData = state.multiplayerPlayers[pName];
+        return `
+        <tr style="background:var(--white); border-bottom: 1px solid rgba(0,0,0,0.1);">
+            <td style="padding: 12px 15px; font-weight:bold; font-size:18px;">${pName}</td>
+            <td style="padding: 12px 15px; text-align:left; font-size:20px;">${pData.isReady ? '✅' : '❌'}</td>
+        </tr>`;
+    }).join('');
 
-    const isFull = playersArr.length >= state.maxPlayers;
+    const isReady = state.multiplayerPlayers[state.myPlayerName]?.isReady || false;
+
+    // Check if everyone is ready
+    const playersData = Object.values(state.multiplayerPlayers);
+    const allReady = playersData.length > 1 && playersData.every(p => p.isReady);
+
+    let hostControls = '';
+    if (state.isHost) {
+        hostControls = `
+            <div class="spacer-md"></div>
+            <button class="neo-button ${allReady ? 'bg-coral' : ''}" style="max-width:200px;" ${allReady ? '' : 'disabled'} onclick="startMultiplayerGame()">
+                התחל משחק
+            </button>
+            <p style="opacity:0.7; text-align:center; max-width: 300px; font-size: 14px; margin-top: 8px;">
+                ${allReady ? 'כולם מוכנים! אפשר להתחיל.' : 'ממתין שכולם יאשרו מוכנות (✅)'}
+            </p>
+        `;
+    } else {
+        hostControls = `
+            <div class="spacer-md"></div>
+            <p style="opacity:0.7; text-align:center; max-width: 300px; font-size: 14px;">
+                ממתין למארח שיתחיל את המשחק...
+            </p>
+        `;
+    }
 
     return `
         <div class="screen-wrapper" style="align-items:center; justify-content:center;">
@@ -1983,15 +2091,32 @@ function renderMultiplayerLobby() {
             <div class="spacer-md"></div>
             
             <p class="bold" style="font-size: 20px;">שחקנים בחדר (${playersArr.length}/${state.maxPlayers}):</p>
-            <div style="width: 100%; max-width: 300px; margin-bottom: 20px;">
-                ${playersListHtml}
-            </div>
+            <table style="width: 100%; max-width: 350px; margin-bottom: 20px; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 2px solid var(--app-text);">
+                <thead style="background: var(--app-text); color: var(--white);">
+                    <tr>
+                        <th style="padding: 10px 15px; text-align: right;">שם שחקן</th>
+                        <th style="padding: 10px 15px; text-align: left;">סטטוס</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${playersListHtml}
+                </tbody>
+            </table>
             
-            ${state.isHost && !isFull ? `<button class="neo-button bg-coral" style="max-width:200px;" onclick="startGameNow()">התחל עכשיו</button>` : ''}
+            <button class="neo-button ${isReady ? 'bg-periwinkle' : 'bg-teal'}" style="max-width:200px;" onclick="toggleReady()">
+                ${isReady ? '❌ אני לא מוכן' : '✅ אני מוכן!'}
+            </button>
             
-            <div class="spacer-md"></div>
-            ${!isFull ? `<p style="opacity:0.7;">המשחק יתחיל ברגע שהחדר יתמלא או כשהמארח יתחיל...</p>
-            <div class="loader" style="margin-top:20px;"></div>` : ''}
+            ${hostControls}
+        </div>
+    `;
+}
+
+function renderMultiplayerStarting() {
+    return `
+        <div class="screen-wrapper" style="align-items:center; justify-content:center;">
+            <h2 class="main-title" style="font-size: 32px; margin-bottom: 24px;">המשחק מתחיל בעוד...</h2>
+            <div style="font-size: 96px; font-weight: 800; color: var(--accent-teal); animation: resultPop 1s infinite;">${state.multiplayerStartTimer}</div>
         </div>
     `;
 }
@@ -2001,10 +2126,10 @@ function renderMultiplayerWaitScreen() {
 
     const leaderboardHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
-        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-bolt"></i> ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
         return `
         <div style="display:flex; justify-content:space-between; align-items:center; background:${isMe ? 'var(--vibrant-indigo)' : 'var(--white)'}; color:${isMe ? 'var(--white)' : 'var(--app-text)'}; padding:10px 15px; margin:5px 0; border-radius:8px; border: 2px solid var(--app-text); font-weight:bold;">
-            <div>#${idx + 1} &nbsp; ${pName} ${pData.finished ? '✅' : '⏳'}</div>
+            <div>#${idx + 1} &nbsp; ${pName} ${pData.finished ? '✅' : '<i class="uit uit-hourglass"></i>'}</div>
             <div dir="ltr">${scoreDisplay}</div>
         </div>`;
     }).join('');
@@ -2036,7 +2161,7 @@ function renderMultiplayerResults() {
 
     const podiumHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
-        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `⚡ ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-bolt"></i> ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
         let medal = '';
         if (idx === 0) medal = '🥇';
         else if (idx === 1) medal = '🥈';
@@ -2159,6 +2284,7 @@ function renderHangman() {
 
     return `
         <div class="screen-wrapper" style="position:relative; padding-bottom:20px;">
+            <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             <div style="display:flex; justify-content:center; align-items:center; margin-bottom:12px;">
                 <div style="display:flex; gap:6px;">
                     ${Array.from({ length: maxWrong }, (_, i) =>
@@ -2180,10 +2306,6 @@ function renderHangman() {
             </div>` : '<div style="height:42px;"></div>'}
 
             <div class="hangman-keyboard">${renderHangmanKeyboard()}</div>
-            
-            <div style="margin-top:auto; width:100%; padding-top:20px;">
-                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block;" onclick="navigate('MENU')">חזור</button>
-            </div>
 
             ${overlayHtml}
         </div>
@@ -2197,7 +2319,7 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
 
     const myPanel = `
         <div class="hangman-panel">
-            <div class="hangman-panel-title">אתה ${state.hangmanDone ? (state.hangmanWon ? '✅' : '❌') : '⏳'}</div>
+            <div class="hangman-panel-title">אתה ${state.hangmanDone ? (state.hangmanWon ? '✅' : '❌') : '<i class="uit uit-hourglass"></i>'}</div>
             ${buildHangmanSVG(myWrongCount, true)}
             <div class="hangman-word small">${myWordDisplay}</div>
             ${state.hangmanWrong.length > 0 ? `
@@ -2214,7 +2336,7 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
 
     const oppPanel = `
         <div class="hangman-panel opponent">
-            <div class="hangman-panel-title">יריב ${oppDone ? (state.hangmanOpponentWon ? '✅' : '❌') : '⏳'}</div>
+            <div class="hangman-panel-title">יריב ${oppDone ? (state.hangmanOpponentWon ? '✅' : '❌') : '<i class="uit uit-hourglass"></i>'}</div>
             ${buildHangmanSVG(oppWrong, true)}
             <div style="text-align:center; margin-top:10px; padding:0 4px;">
                 <div style="font-size:11px; opacity:0.5; margin-bottom:6px;">מילה מוסתרת</div>
@@ -2226,6 +2348,7 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
 
     return `
         <div class="screen-wrapper" style="padding:12px 8px; overflow:hidden;">
+            <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             <div style="display:flex; justify-content:center; align-items:center; margin-bottom:10px;">
                 <span style="font-weight:800; font-size:12px; opacity:0.7;">שגיאות שלי: ${myWrongCount}/${maxWrong} | יריב: ${oppWrong}/${maxWrong}</span>
             </div>
@@ -2233,9 +2356,6 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
                 ${myPanel}
                 <div class="hangman-divider"></div>
                 ${oppPanel}
-            </div>
-            <div style="margin-top:auto; width:100%; padding-top:20px;">
-                <button class="neo-button bg-Back" style="margin:0 auto; max-width: 100px; display: block; font-size:13px;" onclick="navigate('MENU')">חזור</button>
             </div>
         </div>
     `;
