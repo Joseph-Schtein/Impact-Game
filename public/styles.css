@@ -172,6 +172,27 @@ h2 {
     box-shadow: none;
 }
 
+/* Icon Animations inside buttons */
+@keyframes iconWobble {
+    0% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(-12deg) scale(1.15); }
+    50% { transform: rotate(12deg) scale(1.15); }
+    75% { transform: rotate(-12deg) scale(1.15); }
+    100% { transform: rotate(0deg) scale(1); }
+}
+
+.neo-button i.uil {
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 1.1em;
+    vertical-align: middle;
+    transition: transform 0.2s ease;
+}
+
+.neo-button:hover i.uil {
+    animation: iconWobble 0.6s ease-in-out infinite;
+}
+
 /* Accent Buttons - Text remains Dark Indigo for WCAG accessibility */
 .neo-button.bg-coral {
     background-color: var(--accent-mint);

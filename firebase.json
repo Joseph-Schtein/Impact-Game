@@ -6,14 +6,13 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "public": ".",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
       "firestore.rules",
       "firestore.indexes.json",
-      "public/**",
       "skills-lock.json"
     ],
     "rewrites": [
