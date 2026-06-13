@@ -17,7 +17,7 @@
     /* Used for progress bars and highlights */
     --accent-Back: rgb(255, 173, 102);
     --accent-multiplayer: rgb(155, 193, 255);
-    --accent-periwinkle: rgb(217, 163, 255);
+
 
     --white: #ffffff;
 }
@@ -238,12 +238,6 @@ h2 {
     border-color: var(--app-text);
     color: var(--app-text);
     /* navy on teal = 6.3:1 ✅ */
-}
-
-.neo-button.bg-periwinkle {
-    background-color: var(--accent-periwinkle);
-    border-color: var(--app-text);
-    color: var(--app-text);
 }
 
 /* Result Feedback Buttons */
