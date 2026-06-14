@@ -627,6 +627,10 @@ function renderClimb() {
     const screenAnimClass = !state.selectedOption ? 'climb-enter' : '';
     const panelAnimClass = !state.selectedOption ? 'climb-question-enter' : '';
 
+    if (state.isMultiplayer && !state.isAnimatingResult && !state.timerInterval) {
+        startQuestionTimer();
+    }
+
     let oppRank = -1;
     if (state.isMultiplayer && state.multiplayerPlayers) {
         const players = Object.entries(state.multiplayerPlayers);
@@ -641,6 +645,7 @@ function renderClimb() {
             ${buildMountainSVG(state.rank, '', oppRank, state.isMultiplayer, state.isHost)}
 
             <div class="spacer-md"></div>
+            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <div class="${panelAnimClass}">
                 <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
                 <div class="spacer-lg"></div>
@@ -662,31 +667,38 @@ function renderClimbResult() {
     const bg = won ? 'var(--accent-teal)' : 'var(--accent-mint)';
     const animClass = won ? 'climber-up' : 'climber-down';
 
-    // Auto-advance to next question after 2.5s
-    setTimeout(() => {
-        const wrapper = document.querySelector('.screen-wrapper');
-        if (wrapper) wrapper.classList.add('climb-exit');
+    if (!state.climbResultTimeoutActive) {
+        state.climbResultTimeoutActive = true;
+        const isGameOver = state.rank >= 10 || state.rank < 0;
 
-        setTimeout(async () => {
-            if (state.rank >= 10 || state.rank < 0) {
-                if (state.isMultiplayer) {
-                    try {
-                        const updatePath = `players.${state.myPlayerName}.finished`;
-                        await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-                            [updatePath]: true
-                        });
-                    } catch (e) { console.error("Error finishing match:", e); }
-                    navigate('MULTIPLAYER_WAIT');
-                } else {
-                    navigate('GAME_OVER');
-                }
-            } else {
-                state.selectedOption = null;
-                if (!state.isMultiplayer) state.currentIndex++;
-                navigate('PLAYING_CLIMB');
-            }
-        }, 300);
-    }, 2500);
+        // Auto-advance to next question only if single player or game over
+        if (!state.isMultiplayer || isGameOver) {
+            setTimeout(() => {
+                state.climbResultTimeoutActive = false;
+                const wrapper = document.querySelector('.screen-wrapper');
+                if (wrapper) wrapper.classList.add('climb-exit');
+
+                setTimeout(async () => {
+                    if (isGameOver) {
+                        if (state.isMultiplayer) {
+                            try {
+                                const updatePath = `players.${state.myPlayerName}.finished`;
+                                await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                                    [updatePath]: true
+                                });
+                            } catch (e) { console.error("Error finishing match:", e); }
+                            navigate('MULTIPLAYER_WAIT');
+                        } else {
+                            navigate('GAME_OVER');
+                        }
+                    } else {
+                        state.selectedOption = null;
+                        navigate('PLAYING_CLIMB');
+                    }
+                }, 300);
+            }, 2500);
+        }
+    }
 
     let oppRank = -1;
     if (state.isMultiplayer && state.multiplayerPlayers) {
@@ -707,6 +719,11 @@ function renderClimbResult() {
                 <div style="width: 100%; max-width: 600px; padding: 0 16px;">
                     ${buildMountainSVG(state.rank, animClass, oppRank, state.isMultiplayer, state.isHost)}
                 </div>
+                
+                ${(state.isMultiplayer && !(state.rank >= 10 || state.rank < 0)) ? `
+                <div style="margin-top: 30px; text-align: center; animation: resultPop 1.5s infinite;">
+                    <p style="font-size: 20px; font-weight: bold; color: var(--app-text); opacity: 0.8;">ממתין שהיריב יסיים...</p>
+                </div>` : ''}
                 
             </div>
         </div>`;
@@ -1367,11 +1384,11 @@ window.leaveRoom = async () => {
             const data = docSnap.data();
             const newPlayers = { ...data.players };
             delete newPlayers[state.myPlayerName];
-            
+
             let updates = { players: newPlayers };
-            
+
             const allFinished = Object.keys(data.players || {}).length > 0 && Object.values(data.players || {}).every(p => p.finished);
-            
+
             if (!allFinished) {
                 if (state.isHost) {
                     updates['status'] = 'killed';
@@ -1379,11 +1396,11 @@ window.leaveRoom = async () => {
                     updates['status'] = 'killed';
                 }
             }
-            
+
             await window.updateDoc(roomRef, updates);
         }
-    } catch(e) { console.error("Error leaving room:", e); }
-    
+    } catch (e) { console.error("Error leaving room:", e); }
+
     if (unsubscribeMultiplayer) {
         unsubscribeMultiplayer();
         unsubscribeMultiplayer = null;
@@ -1549,7 +1566,11 @@ window.startQuestionTimer = () => {
         if (state.questionTimer <= 0) {
             clearQuestionTimer();
             state.selectedOption = "TIMEOUT_INCORRECT"; // Force an incorrect answer
-            window.checkAnswer();
+            if (state.selectedMode === 'CLIMB') {
+                window.checkClimbAnswer();
+            } else {
+                window.checkAnswer();
+            }
         } else {
             render(); // update the timer text
         }
@@ -1564,6 +1585,7 @@ window.clearQuestionTimer = () => {
 };
 
 window.checkClimbAnswer = () => {
+    clearQuestionTimer();
     const qIdx = state.currentIndex % state.currentPlayList.length;
     const q = state.currentPlayList[qIdx];
     const correct = q.correctMap[state.currentLang.code] || q.correctMap["en"];
@@ -1576,6 +1598,7 @@ window.checkClimbAnswer = () => {
     setTimeout(() => {
         const finalizeAndNavigate = async () => {
             state.isAnimatingResult = false;
+            state.climbResultTimeoutActive = false;
             if (isCorrect) {
                 state.rank = Math.min(10, state.rank + 1);
                 state.climbLastResult = 'up';
@@ -1935,11 +1958,25 @@ function listenToRoom(code) {
                 state.isWaitingForOthers = false;
                 state.selectedOption = null;
                 if (state.selectedMode === 'BET_BURN') state.currentPhase = 'BETTING';
-                if (state.timerInterval) {
-                    clearQuestionTimer();
-                    startQuestionTimer();
+                
+                if (state.selectedMode === 'CLIMB' && state.currentScreen === 'CLIMB_RESULT') {
+                    state.climbResultTimeoutActive = false;
+                    const wrapper = document.querySelector('.screen-wrapper');
+                    if (wrapper) wrapper.classList.add('climb-exit');
+                    setTimeout(() => {
+                        if (state.timerInterval) {
+                            clearQuestionTimer();
+                            startQuestionTimer();
+                        }
+                        navigate('PLAYING_CLIMB');
+                    }, 300);
+                } else {
+                    if (state.timerInterval) {
+                        clearQuestionTimer();
+                        startQuestionTimer();
+                    }
+                    render();
                 }
-                render();
             }
 
             if (state.isHost) {
