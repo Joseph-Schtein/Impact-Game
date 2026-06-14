@@ -1834,6 +1834,11 @@ window.joinMultiplayerRoom = async () => {
             return showToast("המשחק כבר התחיל או שהחדר מלא!", 'error');
         }
 
+        const roomGameMode = data.gameMode || 'CLASSIC';
+        if (roomGameMode !== state.selectedMode) {
+            return showToast("קוד זה שייך לחדר במצב משחק אחר!", 'error');
+        }
+
         if (Object.keys(data.players).length >= data.maxPlayers) {
             return showToast("החדר מלא!", 'error');
         }
@@ -1958,7 +1963,7 @@ function listenToRoom(code) {
                 state.isWaitingForOthers = false;
                 state.selectedOption = null;
                 if (state.selectedMode === 'BET_BURN') state.currentPhase = 'BETTING';
-                
+
                 if (state.selectedMode === 'CLIMB' && state.currentScreen === 'CLIMB_RESULT') {
                     state.climbResultTimeoutActive = false;
                     const wrapper = document.querySelector('.screen-wrapper');
