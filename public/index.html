@@ -19,7 +19,19 @@
     <div id="app-container"></div>
     <div id="toast-container"></div>
 
-    <script src="app.js?v=5"></script>
+    <div id="audio-control-container">
+        <div id="audio-panel" onmouseenter="clearAudioPanelTimeout()" onmouseleave="startAudioPanelTimeout()" ontouchstart="clearAudioPanelTimeout()" ontouchend="startAudioPanelTimeout()">
+            <label>SFX Volume</label>
+            <input type="range" id="sfx-vol" min="0" max="100" value="100" oninput="updateSFXVol(this.value)">
+            <label>Music Volume</label>
+            <input type="range" id="bgm-vol" min="0" max="100" value="100" oninput="updateBGMVol(this.value)">
+        </div>
+        <div id="audio-icon" onclick="toggleAudioPanel()">
+            <i class="uil uil-volume"></i>
+        </div>
+    </div>
+
+    <script src="app.js?v=7"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";

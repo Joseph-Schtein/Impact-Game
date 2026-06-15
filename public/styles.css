@@ -1051,3 +1051,67 @@ h2 {
         animation-delay: 10s;
     }
 }
+
+/* Audio Controls */
+#audio-control-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+#audio-icon {
+    width: 50px;
+    height: 50px;
+    background: var(--app-text);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 2;
+    transition: transform 0.2s ease;
+}
+#audio-icon:active {
+    transform: scale(0.9);
+}
+#audio-panel {
+    position: absolute;
+    bottom: 60px;
+    right: 0;
+    background: var(--white);
+    border: 2px solid var(--app-text);
+    border-radius: 12px;
+    padding: 15px;
+    width: 200px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(33, 2, 110, 0.2);
+}
+#audio-panel.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+#audio-panel label {
+    font-size: 14px;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px;
+    color: var(--app-text);
+}
+#audio-panel input[type="range"] {
+    width: 100%;
+    margin-bottom: 15px;
+    accent-color: var(--accent-teal);
+}
+#audio-panel input[type="range"]:last-child {
+    margin-bottom: 0;
+}

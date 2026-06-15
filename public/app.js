@@ -810,6 +810,7 @@ window.checkMatchPair = () => {
     const rightItem = pool.rights[rIdx];
 
     if (leftItem.id === rightItem.id) {
+        if (typeof playSfx !== 'undefined') playSfx('correct');
         leftItem.matched = true;
         rightItem.matched = true;
         state.matchedPairsCount++;
@@ -830,6 +831,7 @@ window.checkMatchPair = () => {
         }, 50);
 
     } else {
+        if (typeof playSfx !== 'undefined') playSfx('wrong');
         state.matchErrorLeft = lIdx;
         state.matchErrorRight = rIdx;
         render();
@@ -1511,6 +1513,9 @@ window.checkAnswer = () => {
 
     state.isAnimatingResult = true;
     state.lastResultIsCorrect = isCorrect;
+    if (typeof playSfx !== 'undefined') {
+        if (isCorrect) playSfx('correct'); else playSfx('wrong');
+    }
     render();
 
     setTimeout(async () => {
@@ -1518,11 +1523,11 @@ window.checkAnswer = () => {
 
         if (state.isMultiplayer && state.selectedMode === 'CLASSIC') {
             try {
+                state.isWaitingForOthers = true;
+                render();
                 await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
                     [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
                 });
-                state.isWaitingForOthers = true;
-                render();
             } catch (e) { console.error("Error submitting answer:", e); }
         } else {
             if (isCorrect) state.score++;
@@ -1572,7 +1577,10 @@ window.startQuestionTimer = () => {
                 window.checkAnswer();
             }
         } else {
-            render(); // update the timer text
+            const timerEl = document.querySelector('.timer');
+            if (timerEl) {
+                timerEl.innerHTML = `<i class="uit uit-hourglass"></i> ${state.questionTimer}s`;
+            }
         }
     }, 1000);
 };
@@ -1593,6 +1601,9 @@ window.checkClimbAnswer = () => {
 
     state.isAnimatingResult = true;
     state.lastResultIsCorrect = isCorrect;
+    if (typeof playSfx !== 'undefined') {
+        if (isCorrect) playSfx('correct'); else playSfx('wrong');
+    }
     render();
 
     setTimeout(() => {
@@ -1603,19 +1614,23 @@ window.checkClimbAnswer = () => {
                 state.rank = Math.min(10, state.rank + 1);
                 state.climbLastResult = 'up';
             } else {
-                state.rank = Math.max(-1, state.rank - 1);
+                if (state.isMultiplayer && state.rank === 0) {
+                    state.rank = 0;
+                } else {
+                    state.rank = Math.max(-1, state.rank - 1);
+                }
                 state.climbLastResult = 'down';
             }
 
             if (state.isMultiplayer) {
                 try {
                     const updatePath = `players.${state.myPlayerName}.score`;
+                    state.isWaitingForOthers = true;
+                    navigate('CLIMB_RESULT');
                     await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
                         [updatePath]: state.rank,
                         [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
                     });
-                    state.isWaitingForOthers = true;
-                    navigate('CLIMB_RESULT');
                 } catch (e) { console.error("Error syncing score:", e); }
             } else {
                 state.currentIndex++;
@@ -1641,6 +1656,9 @@ window.checkBetAnswer = () => {
 
     state.isAnimatingResult = true;
     state.lastResultIsCorrect = isCorrect;
+    if (typeof playSfx !== 'undefined') {
+        if (isCorrect) playSfx('correct'); else playSfx('wrong');
+    }
     render();
 
     setTimeout(async () => {
@@ -1663,15 +1681,12 @@ window.checkBetAnswer = () => {
                 };
                 if (state.energy <= 0) {
                     payload[`players.${state.myPlayerName}.finished`] = true;
-                }
-                await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
-
-                if (state.energy <= 0) {
                     navigate('MULTIPLAYER_WAIT');
                 } else {
                     state.isWaitingForOthers = true;
                     render();
                 }
+                await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
             } catch (e) { console.error("Error syncing score:", e); }
         } else {
             if (state.energy <= 0 || state.currentIndex >= Math.min(state.currentPlayList.length - 1, 9)) {
@@ -1734,6 +1749,11 @@ function renderMultiplayerMenu() {
                        <option value="5">5 שחקנים</option>
                    </select>`
         }
+                ${state.selectedMode !== 'HANGMAN' ? `<label class="bold color-indigo" style="font-size:18px;">בחר נושא:</label>
+                <select id="multiCategoryInput" class="neo-input" style="margin-bottom: 20px; font-weight: bold; background-color: var(--white); font-size:18px; text-align:center;">
+                    <option value="all">הכל (מעורבב)</option>
+                    ${categoryList.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>` : ''}
                 <button class="neo-button bg-coral" style="height:60px;" onclick="createMultiplayerRoom()">צור חדר (מארח)</button>
                 <div class="spacer-lg"></div>
                 <input type="text" id="joinCodeInput" class="neo-input" placeholder="הכנס קוד חדר" style="text-align: center; font-size: 24px; text-transform: uppercase; margin-bottom: 12px;">
@@ -1772,13 +1792,24 @@ window.createMultiplayerRoom = async () => {
         return;
     }
     let playlist = [...state.questionBank];
+    const catInput = document.getElementById('multiCategoryInput')?.value || 'all';
+    if (catInput !== 'all') {
+        playlist = playlist.filter(q => q.category === catInput);
+    }
+    
+    if (playlist.length === 0 && state.selectedMode !== 'HANGMAN') {
+        showToast("אין מספיק שאלות בנושא זה!", "error");
+        return;
+    }
+
     if (state.selectedMode === 'MATCH_PAIRS') {
         playlist = playlist.filter(q => q.type === 'match_pair');
     } else {
         playlist = playlist.filter(q => q.type !== 'match_pair');
     }
 
-    const shuffled = state.selectedMode === 'HANGMAN' ? [] : playlist.sort(() => Math.random() - 0.5).slice(0, 10).map(q => {
+    const numQuestions = state.selectedMode === 'CLIMB' ? 50 : 10;
+    const shuffled = state.selectedMode === 'HANGMAN' ? [] : playlist.sort(() => Math.random() - 0.5).slice(0, numQuestions).map(q => {
         if (state.selectedMode === 'MATCH_PAIRS') return q;
         const clonedQ = { ...q, optionsMap: {} };
         if (q.optionsMap) {
@@ -2010,7 +2041,7 @@ function listenToRoom(code) {
 
                     updates[`answers`] = {};
 
-                    if (data.currentQuestionIndex >= data.playlist.length - 1) {
+                    if (data.currentQuestionIndex >= data.playlist.length - 1 && state.selectedMode !== 'CLIMB') {
                         Object.keys(data.players).forEach(p => {
                             updates[`players.${p}.finished`] = true;
                         });
@@ -2559,8 +2590,10 @@ function guessLetter(letter) {
     if (state.hangmanGuessed.includes(letter) || state.hangmanWrong.includes(letter)) return;
 
     if (state.hangmanWord.includes(letter)) {
+        if (typeof playSfx !== 'undefined') playSfx('correct');
         state.hangmanGuessed.push(letter);
     } else {
+        if (typeof playSfx !== 'undefined') playSfx('wrong');
         state.hangmanWrong.push(letter);
     }
 
@@ -2593,4 +2626,132 @@ function guessLetter(letter) {
     }
 
     render();
+}
+
+// --- AUDIO SYSTEM ---
+const sfxCorrect = new Audio('sound/sfx_correct.wav');
+const sfxWrong = new Audio('sound/sfx_error.wav');
+const sfxClick = new Audio('sound/sfx_click.wav');
+const bgmFiles = [
+    'sound/bgm_calm.wav',
+    'sound/bgm_rhythmic_2.wav',
+    'sound/bgm_rhythmic.wav'
+];
+let currentBgm = null;
+
+let _audioUnlocked = false;
+function _unlockAudio() {
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    
+    // Play and immediately pause all sound effects to unlock them for mobile
+    [sfxCorrect, sfxWrong, sfxClick].forEach(a => {
+        const originalVol = a.volume;
+        a.volume = 0; // Mute during unlock
+        const p = a.play();
+        if (p !== undefined) {
+            p.then(() => {
+                a.pause();
+                a.currentTime = 0;
+                a.volume = originalVol;
+            }).catch(() => {});
+        }
+    });
+
+    document.removeEventListener('click', _unlockAudio);
+    document.removeEventListener('touchstart', _unlockAudio);
+}
+document.addEventListener('click', _unlockAudio);
+document.addEventListener('touchstart', _unlockAudio);
+
+window.updateSFXVol = (val) => {
+    const vol = val / 100;
+    sfxCorrect.volume = vol;
+    sfxWrong.volume = vol;
+    sfxClick.volume = vol;
+};
+
+window.updateBGMVol = (val) => {
+    if(currentBgm) {
+        currentBgm.volume = val / 100;
+    }
+};
+
+window.playSfx = (type) => {
+    if (type === 'correct') {
+        sfxCorrect.currentTime = 0;
+        sfxCorrect.play().catch(e=>console.log(e));
+    } else if (type === 'wrong') {
+        sfxWrong.currentTime = 0;
+        sfxWrong.play().catch(e=>console.log(e));
+    } else if (type === 'click') {
+        sfxClick.currentTime = 0;
+        sfxClick.play().catch(e=>console.log(e));
+    }
+};
+
+function playRandomBgm() {
+    if (currentBgm) {
+        currentBgm.pause();
+    }
+    const randomFile = bgmFiles[Math.floor(Math.random() * bgmFiles.length)];
+    currentBgm = new Audio(randomFile);
+    currentBgm.loop = true;
+    const bgmSlider = document.getElementById('bgm-vol');
+    if (bgmSlider) {
+        currentBgm.volume = bgmSlider.value / 100;
+    }
+    const p = currentBgm.play();
+    if (p !== undefined) {
+        p.catch(e => {
+            // Autoplay policy fallback
+            const playBgmOnInteract = () => {
+                if(currentBgm && currentBgm.paused) currentBgm.play().catch(err=>console.log(err));
+                document.removeEventListener('click', playBgmOnInteract);
+                document.removeEventListener('touchstart', playBgmOnInteract);
+            };
+            document.addEventListener('click', playBgmOnInteract);
+            document.addEventListener('touchstart', playBgmOnInteract);
+        });
+    }
+}
+
+// Global click for sound
+document.addEventListener('click', (e) => {
+    if (e.target.closest('button') || e.target.closest('.match-item') || e.target.closest('#audio-icon')) {
+        playSfx('click');
+    }
+});
+
+let audioPanelTimeout;
+
+window.toggleAudioPanel = () => {
+    const panel = document.getElementById('audio-panel');
+    if(panel.classList.contains('show')) {
+        panel.classList.remove('show');
+    } else {
+        panel.classList.add('show');
+        window.startAudioPanelTimeout();
+    }
+};
+
+window.startAudioPanelTimeout = () => {
+    clearTimeout(audioPanelTimeout);
+    audioPanelTimeout = setTimeout(() => {
+        const panel = document.getElementById('audio-panel');
+        if(panel) panel.classList.remove('show');
+    }, 3000);
+};
+
+window.clearAudioPanelTimeout = () => {
+    clearTimeout(audioPanelTimeout);
+};
+
+// Start BGM on load or first interaction
+document.addEventListener('DOMContentLoaded', () => {
+    playRandomBgm();
+});
+// Fallback if DOMContentLoaded already fired
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(playRandomBgm, 1000);
 }
