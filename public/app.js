@@ -236,9 +236,9 @@ function renderModeSelect() {
             <h2 class="main-title">${getString('mode_title')}</h2>
             <div class="button-group">
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', false)"><i class="uil uil-question mobile-cycle-1" style="font-size: 1.5em; vertical-align: middle;"></i> ${getString('mode_classic')}</button>
-                <button class="neo-button bg-multiplayer" style="height:60px;" onclick="setMode('MATCH_PAIRS', false)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
-                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', false)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
-                <button class="neo-button bg-teal" style="height:60px; margin-top:12px;" onclick="setMode('BET_BURN', false)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('CLIMB', false)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
+                <button class="neo-button bg-teal" style="height:60px; margin-top:12px; display:none;" onclick="setMode('BET_BURN', false)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-multiplayer" style="height:60px; margin-top:12px;" onclick="setMode('MATCH_PAIRS', false)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
                 <button class="neo-button bg-periwinkle" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', false)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
@@ -252,9 +252,9 @@ function renderModeSelectMulti() {
             <h2 class="main-title">${getString('multi_btn')}</h2>
             <div class="button-group">
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="setMode('CLASSIC', true)"><i class="uil uil-question mobile-cycle-1" style="font-size: 1.5em; vertical-align: middle;"></i> ${getString('mode_classic')}</button>
-                <button class="neo-button bg-multiplayer" style="height:60px;" onclick="setMode('MATCH_PAIRS', true)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
-                <button class="neo-button bg-coral" style="height:60px;" onclick="setMode('CLIMB', true)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
-                <button class="neo-button bg-teal" style="height:60px; margin-top:12px;" onclick="setMode('BET_BURN', true)"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')}</button>
+                <button class="neo-button bg-coral" style="height:60px; margin-top:12px;" onclick="setMode('CLIMB', true)"><i class="uil uil-mountains-sun mobile-cycle-2"></i> ${getString('mode_climb')}</button>
+                <button class="neo-button bg-teal" style="height:60px; margin-top:12px; display:none;" onclick="return false;"><i class="uil uil-dollar-alt mobile-cycle-3"></i> ${getString('mode_bet')} (Disabled)</button>
+                <button class="neo-button bg-multiplayer" style="height:60px; margin-top:12px;" onclick="setMode('MATCH_PAIRS', true)"><i class="uil uil-puzzle-piece mobile-cycle-4"></i> התאמת זוגות</button>
                 <button class="neo-button bg-periwinkle" style="height:60px; margin-top:12px;" onclick="setMode('HANGMAN', true)"><i class="uil uil-bullseye mobile-cycle-5"></i> איש תלוי</button>
                 <div class="spacer-lg"></div>
                 <button class="neo-button bg-Back" style="max-width: 100px;" onclick="navigate('MENU')">${getString('back')}</button>
@@ -351,9 +351,16 @@ function renderClassic() {
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <h2 style="font-size: 20px;">${qText}</h2>
-            <div class="spacer-lg"></div>
-            ${generateOptionsHTML(opts)}
+            <div style="display: flex; flex-direction: ${state.currentLang.isRtl ? 'row-reverse' : 'row'}; width: 100%; gap: 16px;">
+                <div class="media-base-container" style="display: none; flex: 1; justify-content: center; align-items: center;">
+                    ${q.mediaUrl ? `<img src="${q.mediaUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: contain;" alt="Question Media" />` : ''}
+                </div>
+                <div style="flex: 2; display: flex; flex-direction: column;">
+                    <h2 style="font-size: 20px;">${qText}</h2>
+                    <div class="spacer-lg"></div>
+                    ${generateOptionsHTML(opts)}
+                </div>
+            </div>
             <div style="margin-top:auto; width:100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                         onclick="checkAnswer()">${getString('check_btn')}</button>
@@ -387,9 +394,16 @@ function renderBetBurn() {
         content = `
             <p class="color-coral bold" style="font-size:18px;">הימור: <i class="uil uil-bolt"></i> ${state.userBetInput}</p>
             <div class="spacer-md"></div>
-            <h2 style="font-size: 22px;">${qText}</h2>
-            <div class="spacer-lg"></div>
-            ${generateOptionsHTML(opts)}
+            <div style="display: flex; flex-direction: ${state.currentLang.isRtl ? 'row-reverse' : 'row'}; width: 100%; gap: 16px;">
+                <div class="media-base-container" style="display: none; flex: 1; justify-content: center; align-items: center;">
+                    ${q.mediaUrl ? `<img src="${q.mediaUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: contain;" alt="Question Media" />` : ''}
+                </div>
+                <div style="flex: 2; display: flex; flex-direction: column;">
+                    <h2 style="font-size: 22px;">${qText}</h2>
+                    <div class="spacer-lg"></div>
+                    ${generateOptionsHTML(opts)}
+                </div>
+            </div>
             <div style="margin-top:auto; width: 100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                         onclick="checkBetAnswer()">${getString('check_btn')}</button>
@@ -646,11 +660,15 @@ function renderClimb() {
 
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <div class="${panelAnimClass}">
-                <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
-                <div class="spacer-lg"></div>
-
-                ${generateOptionsHTML(opts)}
+            <div class="${panelAnimClass}" style="display: flex; flex-direction: ${state.currentLang.isRtl ? 'row-reverse' : 'row'}; width: 100%; gap: 16px;">
+                <div class="media-base-container" style="display: none; flex: 1; justify-content: center; align-items: center;">
+                    ${q.mediaUrl ? `<img src="${q.mediaUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: contain;" alt="Question Media" />` : ''}
+                </div>
+                <div style="flex: 2; display: flex; flex-direction: column;">
+                    <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
+                    <div class="spacer-lg"></div>
+                    ${generateOptionsHTML(opts)}
+                </div>
             </div>
 
             <div style="margin-top:auto; width:100%;">
@@ -932,7 +950,7 @@ function renderGameOver() {
             subline = `סיימת ברמה ${Math.max(0, state.rank)}`;
         }
     } else if (state.selectedMode === 'BET_BURN') {
-        headline = getString('game_over');
+        headline = state.energy >= 1000 ? '🏆 הגעת ל-1000!' : getString('game_over');
         subline = '<i class="uil uil-bolt"></i> ' + state.energy;
         const savedName = localStorage.getItem('otakuPlayerName') || '';
         submitHtml = `
@@ -1185,6 +1203,11 @@ function renderAddQuestion() {
                     <label class="bold">טקסט השאלה</label>
                     <input type="text" id="newQText" class="neo-input" placeholder="לדוגמא, מי היוצר של וואן פיס?">
                     
+                    <div id="newQMediaContainer" style="display: none;">
+                        <label class="bold">קישור לתמונה/וידאו (לא חובה)</label>
+                        <input type="text" id="newQMediaUrl" class="neo-input" placeholder="הכנס קישור ל-URL של תמונה/וידאו">
+                    </div>
+                    
                     <label class="bold">אפשרויות (4)</label>
                     <input type="text" id="newQOpt1" class="neo-input" placeholder="אפשרות 1" oninput="updateCorrectDropdown()">
                     <input type="text" id="newQOpt2" class="neo-input" placeholder="אפשרות 2" oninput="updateCorrectDropdown()">
@@ -1238,6 +1261,7 @@ async function saveNewQuestion() {
 
         if (qType === 'trivia') {
             const qText = document.getElementById('newQText').value.trim();
+            const qMediaUrl = document.getElementById('newQMediaUrl').value.trim();
             const opts = [
                 document.getElementById('newQOpt1').value.trim(),
                 document.getElementById('newQOpt2').value.trim(),
@@ -1263,6 +1287,7 @@ async function saveNewQuestion() {
             newQuestion.textMap = tQ;
             newQuestion.optionsMap = tO;
             newQuestion.correctMap = tA;
+            if (qMediaUrl) newQuestion.mediaUrl = qMediaUrl;
 
         } else if (qType === 'hangman') {
             // Remove multiple consecutive spaces and trim
@@ -1627,10 +1652,14 @@ window.checkClimbAnswer = () => {
                     const updatePath = `players.${state.myPlayerName}.score`;
                     state.isWaitingForOthers = true;
                     navigate('CLIMB_RESULT');
-                    await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                    let payload = {
                         [updatePath]: state.rank,
                         [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
-                    });
+                    };
+                    if (state.rank >= 10) {
+                        payload[`players.${state.myPlayerName}.finished`] = true;
+                    }
+                    await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
                 } catch (e) { console.error("Error syncing score:", e); }
             } else {
                 state.currentIndex++;
@@ -1689,13 +1718,13 @@ window.checkBetAnswer = () => {
                 await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
             } catch (e) { console.error("Error syncing score:", e); }
         } else {
-            if (state.energy <= 0 || state.currentIndex >= Math.min(state.currentPlayList.length - 1, 9)) {
+            if (state.energy <= 0 || state.energy >= 1000) {
                 navigate('GAME_OVER');
             } else {
                 state.userBetInput = '';
                 state.selectedOption = null;
                 state.currentPhase = 'BETTING';
-                state.currentIndex++;
+                state.currentIndex = (state.currentIndex + 1) % state.currentPlayList.length;
                 render();
             }
         }
