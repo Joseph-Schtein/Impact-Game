@@ -39,6 +39,13 @@ textarea {
 body {
     background-color: var(--app-bg);
     min-height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+input, textarea {
+    user-select: auto;
+    -webkit-user-select: auto;
 }
 
 /* STRICT INDIGO TEXT: Forces all text to use the high-contrast Dark Indigo */

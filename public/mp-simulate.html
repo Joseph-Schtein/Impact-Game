@@ -827,8 +827,8 @@ async function playClassic(code, p1, p2, playlist, metrics) {
 
 // ─── The Climb ─────────────────────────────────────────────
 async function playClimb(code, p1, p2, playlist, metrics) {
-  let rank1 = 0, rank2 = 0;
-  metrics.p1Score = 0; metrics.p2Score = 0;
+  let rank1 = 2, rank2 = 2; // START FROM 2
+  metrics.p1Score = 2; metrics.p2Score = 2;
   const MAX_STEPS = 30;
 
   for (let step = 0; step < MAX_STEPS; step++) {
@@ -839,13 +839,13 @@ async function playClimb(code, p1, p2, playlist, metrics) {
     await sleep(DELAY * (0.5 + Math.random()*0.5));
     const c1 = botAnswer(q, P1_ACC) === (q.correctMap.he || q.correctMap.en);
     if (c1) { rank1 = Math.min(10, rank1+1); metrics.p1Correct++; }
-    else     { rank1 = Math.max(-1, rank1-1); metrics.p1Wrong++; }
+    else     { rank1 = Math.max(0, rank1-1); metrics.p1Wrong++; } // min rank 0 in multiplayer
     pLog(1, c1 ? `✅ Rank → ${rank1}` : `❌ Rank → ${rank1}`, c1 ? 'ok' : 'err');
 
     await sleep(DELAY * (0.3 + Math.random()*0.4));
     const c2 = botAnswer(q, P2_ACC) === (q.correctMap.he || q.correctMap.en);
     if (c2) { rank2 = Math.min(10, rank2+1); metrics.p2Correct++; }
-    else     { rank2 = Math.max(-1, rank2-1); metrics.p2Wrong++; }
+    else     { rank2 = Math.max(0, rank2-1); metrics.p2Wrong++; } // min rank 0 in multiplayer
     pLog(2, c2 ? `✅ Rank → ${rank2}` : `❌ Rank → ${rank2}`, c2 ? 'ok' : 'err');
 
     metrics.p1Score = rank1;
@@ -879,10 +879,10 @@ async function playClimb(code, p1, p2, playlist, metrics) {
 
   metrics.p1Score = Math.max(0, rank1);
   metrics.p2Score = Math.max(0, rank2);
-  addEdgeCheck('CLIMB', 'Rank boundaries', 'Rank stays in [-1, 10]',
-    `P1_peak=${rank1} P2_peak=${rank2}`, (rank1 >= -1 && rank1 <= 10 && rank2 >= -1 && rank2 <= 10) ? 'pass' : 'fail');
-  addEdgeCheck('CLIMB', 'Negative rank → lose', 'rank < 0 marks finished',
-    `p1_fell=${rank1 < 0}, p2_fell=${rank2 < 0}`, 'pass');
+  addEdgeCheck('CLIMB', 'Rank boundaries', 'Rank stays in [0, 10]',
+    `P1_peak=${rank1} P2_peak=${rank2}`, (rank1 >= 0 && rank1 <= 10 && rank2 >= 0 && rank2 <= 10) ? 'pass' : 'fail');
+  addEdgeCheck('CLIMB', 'Peak rank → win', 'rank >= 10 marks finished',
+    `p1_won=${rank1 >= 10}, p2_won=${rank2 >= 10}`, 'pass');
 }
 
 // ─── Bet & Burn ────────────────────────────────────────────

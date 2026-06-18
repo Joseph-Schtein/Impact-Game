@@ -419,26 +419,23 @@ function renderBetBurn() {
         </div>`;
 }
 
-function buildMountainSVG(rank, animateClass, oppRank = -1, isMultiplayer = false, isHost = true) {
-    function getClimberHtml(r, anim, side) {
-        if (r < 0) return '';
-        const t = r / 10;
+function buildMountainSVG(rank, oldRank, animateClass, oppRank = -1, oldOppRank = -1, oppAnimateClass = '', isMultiplayer = false, isHost = true) {
+    function getClimberHtml(r, oldR, anim, side) {
+        if (r < 0 && oldR < 0) return '';
+        const t = Math.max(0, r) / 10;
         let newX, newY, oldX, oldY;
+
+        const actualOldR = oldR !== undefined ? oldR : r;
+        const tOld = Math.max(0, actualOldR) / 10;
 
         if (side === 'left') {
             newX = 20 + 240 * t;
             newY = 220 - 192 * t;
-            const oldRank = anim === 'climber-up' ? Math.max(isMultiplayer ? 0 : -1, r - 1) :
-                (anim === 'climber-down' ? Math.min(10, r + 1) : r);
-            const tOld = oldRank / 10;
             oldX = 20 + 240 * tOld;
             oldY = 220 - 192 * tOld;
         } else {
             newX = 500 - 240 * t;
             newY = 220 - 192 * t;
-            const oldRank = anim === 'climber-up' ? Math.max(isMultiplayer ? 0 : -1, r - 1) :
-                (anim === 'climber-down' ? Math.min(10, r + 1) : r);
-            const tOld = oldRank / 10;
             oldX = 500 - 240 * tOld;
             oldY = 220 - 192 * tOld;
         }
@@ -504,23 +501,29 @@ function buildMountainSVG(rank, animateClass, oppRank = -1, isMultiplayer = fals
             </g>`;
     }
 
-    let leftRank, leftAnimate, rightRank, rightAnimate;
+    let leftRank, leftOldRank, leftAnimate, rightRank, rightOldRank, rightAnimate;
     if (isMultiplayer) {
         if (isHost) {
             leftRank = rank;
+            leftOldRank = oldRank;
             leftAnimate = animateClass;
             rightRank = oppRank;
-            rightAnimate = '';
+            rightOldRank = oldOppRank;
+            rightAnimate = oppAnimateClass;
         } else {
             rightRank = rank;
+            rightOldRank = oldRank;
             rightAnimate = animateClass;
             leftRank = oppRank;
-            leftAnimate = '';
+            leftOldRank = oldOppRank;
+            leftAnimate = oppAnimateClass;
         }
     } else {
         leftRank = rank;
+        leftOldRank = oldRank;
         leftAnimate = animateClass;
         rightRank = -1;
+        rightOldRank = -1;
         rightAnimate = '';
     }
 
@@ -545,8 +548,8 @@ function buildMountainSVG(rank, animateClass, oppRank = -1, isMultiplayer = fals
         }).join('');
     }
 
-    const climberLeft = getClimberHtml(leftRank, leftAnimate, 'left');
-    const climberRight = getClimberHtml(rightRank, rightAnimate, 'right');
+    const climberLeft = getClimberHtml(leftRank, leftOldRank, leftAnimate, 'left');
+    const climberRight = getClimberHtml(rightRank, rightOldRank, rightAnimate, 'right');
 
     const rankDisplay = isMultiplayer ?
         `רמה ${Math.max(0, isHost ? leftRank : rightRank)} / 10 (אתה) | רמה ${Math.max(0, isHost ? rightRank : leftRank)} / 10 (יריב)` :
@@ -680,49 +683,61 @@ function renderClimb() {
 
 
 function renderClimbResult() {
-    const won = state.climbLastResult === 'up';
-    const label = won ? 'נכון! הצלחת לעלות רמה!' : 'לא נכון. ירדת רמה';
-    const bg = won ? 'var(--accent-teal)' : 'var(--accent-mint)';
-    const animClass = won ? 'climber-up' : 'climber-down';
-
-    if (!state.climbResultTimeoutActive) {
-        state.climbResultTimeoutActive = true;
-        const isGameOver = state.rank >= 10 || state.rank < 0;
-
-        // Auto-advance to next question only if single player or game over
-        if (!state.isMultiplayer || isGameOver) {
-            setTimeout(() => {
-                state.climbResultTimeoutActive = false;
-                const wrapper = document.querySelector('.screen-wrapper');
-                if (wrapper) wrapper.classList.add('climb-exit');
-
-                setTimeout(async () => {
-                    if (isGameOver) {
-                        if (state.isMultiplayer) {
-                            try {
-                                const updatePath = `players.${state.myPlayerName}.finished`;
-                                await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-                                    [updatePath]: true
-                                });
-                            } catch (e) { console.error("Error finishing match:", e); }
-                            navigate('MULTIPLAYER_WAIT');
-                        } else {
-                            navigate('GAME_OVER');
-                        }
-                    } else {
-                        state.selectedOption = null;
-                        navigate('PLAYING_CLIMB');
-                    }
-                }, 300);
-            }, 2500);
-        }
-    }
-
     let oppRank = -1;
+    let oppOldRank = -1;
+    let oppAnimClass = '';
+
     if (state.isMultiplayer && state.multiplayerPlayers) {
         const players = Object.entries(state.multiplayerPlayers);
         const opp = players.find(([name]) => name !== state.myPlayerName);
-        if (opp) oppRank = opp[1].score;
+        if (opp) {
+            oppRank = opp[1].score;
+            oppOldRank = state.oldOppRank !== undefined ? state.oldOppRank : oppRank;
+            oppAnimClass = oppRank > oppOldRank ? 'climber-up' : (oppRank < oppOldRank ? 'climber-down' : '');
+        }
+    }
+
+    const won = state.isMultiplayer ? (state.rank > state.oldRank) : (state.climbLastResult === 'up');
+    let label = won ? 'נכון! הצלחת לעלות רמה!' : 'לא נכון. ירדת רמה';
+    if (state.isMultiplayer && (state.rank - state.oldRank === 2)) {
+        label = '⚡ היית מהיר! עלית 2 רמות!';
+    }
+    const animClass = state.isMultiplayer ? (state.rank > state.oldRank ? 'climber-up' : (state.rank < state.oldRank ? 'climber-down' : '')) : (won ? 'climber-up' : 'climber-down');
+
+    if (!state.climbResultTimeoutActive) {
+        state.climbResultTimeoutActive = true;
+        const isGameOver = (!state.isMultiplayer && (state.rank >= 10 || state.rank < 0)) || (state.isMultiplayer && state.pendingClimbFinished);
+
+        setTimeout(() => {
+            state.climbResultTimeoutActive = false;
+            const wrapper = document.querySelector('.screen-wrapper');
+            if (wrapper) wrapper.classList.add('climb-exit');
+
+            setTimeout(async () => {
+                if (state.pendingQuestionIndex !== undefined) {
+                    state.currentIndex = state.pendingQuestionIndex;
+                    state.pendingQuestionIndex = undefined;
+                }
+                
+                if (isGameOver) {
+                    if (state.isMultiplayer) {
+                        try {
+                            const updatePath = `players.${state.myPlayerName}.finished`;
+                            await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                                [updatePath]: true
+                            });
+                        } catch (e) { console.error("Error finishing match:", e); }
+                        navigate('MULTIPLAYER_WAIT');
+                    } else {
+                        navigate('GAME_OVER');
+                    }
+                } else {
+                    state.selectedOption = null;
+                    if (state.timerInterval && state.isMultiplayer) { clearQuestionTimer(); startQuestionTimer(); }
+                    navigate('PLAYING_CLIMB');
+                }
+            }, 300);
+        }, 2500);
     }
 
     return `
@@ -735,7 +750,7 @@ function renderClimbResult() {
                 
                 <!-- Mountain SVG -->
                 <div style="width: 100%; max-width: 600px; padding: 0 16px;">
-                    ${buildMountainSVG(state.rank, animClass, oppRank, state.isMultiplayer, state.isHost)}
+                    ${buildMountainSVG(state.rank, state.oldRank, animClass, oppRank, oppOldRank, oppAnimClass, state.isMultiplayer, state.isHost)}
                 </div>
                 
                 ${(state.isMultiplayer && !(state.rank >= 10 || state.rank < 0)) ? `
@@ -1635,40 +1650,43 @@ window.checkClimbAnswer = () => {
         const finalizeAndNavigate = async () => {
             state.isAnimatingResult = false;
             state.climbResultTimeoutActive = false;
-            if (isCorrect) {
-                state.rank = Math.min(10, state.rank + 1);
-                state.climbLastResult = 'up';
-            } else {
-                if (state.isMultiplayer && state.rank === 0) {
-                    state.rank = 0;
-                } else {
-                    state.rank = Math.max(-1, state.rank - 1);
+            state.oldRank = state.rank;
+            if (state.isMultiplayer && state.multiplayerPlayers) {
+                const oppName = Object.keys(state.multiplayerPlayers).find(n => n !== state.myPlayerName);
+                if (oppName) {
+                    state.oldOppRank = state.multiplayerPlayers[oppName].score || 0;
                 }
-                state.climbLastResult = 'down';
             }
 
-            if (state.isMultiplayer) {
-                try {
-                    const updatePath = `players.${state.myPlayerName}.score`;
-                    state.isWaitingForOthers = true;
-                    navigate('CLIMB_RESULT');
-                    let payload = {
-                        [updatePath]: state.rank,
-                        [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
-                    };
-                    if (state.rank >= 10) {
-                        payload[`players.${state.myPlayerName}.finished`] = true;
-                    }
-                    await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
-                } catch (e) { console.error("Error syncing score:", e); }
-            } else {
+            if (!state.isMultiplayer) {
+                if (isCorrect) {
+                    state.rank = Math.min(10, state.rank + 1);
+                    state.climbLastResult = 'up';
+                } else {
+                    state.rank = Math.max(-1, state.rank - 1);
+                    state.climbLastResult = 'down';
+                }
                 state.currentIndex++;
                 navigate('CLIMB_RESULT');
+            } else {
+                if (isCorrect) {
+                    state.climbLastResult = 'up';
+                } else {
+                    state.climbLastResult = 'down';
+                }
+                try {
+                    state.isWaitingForOthers = true;
+                    render();
+                    let payload = {
+                        [`answers.${state.myPlayerName}`]: { isCorrect, time: Date.now() }
+                    };
+                    await window.updateDoc(window.doc(window.db, "rooms", state.roomId), payload);
+                } catch (e) { console.error("Error syncing answer:", e); }
             }
         };
 
         const wrapper = document.querySelector('.screen-wrapper');
-        if (wrapper) {
+        if (wrapper && !state.isMultiplayer) {
             wrapper.classList.add('climb-exit');
             setTimeout(finalizeAndNavigate, 300);
         } else {
@@ -1837,7 +1855,7 @@ window.createMultiplayerRoom = async () => {
         playlist = playlist.filter(q => q.type !== 'match_pair');
     }
 
-    const numQuestions = state.selectedMode === 'CLIMB' ? 50 : 10;
+    const numQuestions = state.selectedMode === 'CLIMB' ? playlist.length : 10;
     const shuffled = state.selectedMode === 'HANGMAN' ? [] : playlist.sort(() => Math.random() - 0.5).slice(0, numQuestions).map(q => {
         if (state.selectedMode === 'MATCH_PAIRS') return q;
         const clonedQ = { ...q, optionsMap: {} };
@@ -2018,24 +2036,20 @@ function listenToRoom(code) {
                 else if (state.selectedMode === 'BET_BURN') state.energy = s;
             }
 
-            if (data.currentQuestionIndex > state.currentIndex) {
-                state.currentIndex = data.currentQuestionIndex;
+            if (data.currentQuestionIndex > state.currentIndex || (data.climbFinished && state.isWaitingForOthers)) {
+                const wasWaiting = state.isWaitingForOthers;
                 state.isWaitingForOthers = false;
                 state.selectedOption = null;
                 if (state.selectedMode === 'BET_BURN') state.currentPhase = 'BETTING';
 
-                if (state.selectedMode === 'CLIMB' && state.currentScreen === 'CLIMB_RESULT') {
-                    state.climbResultTimeoutActive = false;
-                    const wrapper = document.querySelector('.screen-wrapper');
-                    if (wrapper) wrapper.classList.add('climb-exit');
-                    setTimeout(() => {
-                        if (state.timerInterval) {
-                            clearQuestionTimer();
-                            startQuestionTimer();
-                        }
-                        navigate('PLAYING_CLIMB');
-                    }, 300);
+                if (state.selectedMode === 'CLIMB') {
+                    if (wasWaiting && state.currentScreen === 'PLAYING_CLIMB') {
+                        state.pendingQuestionIndex = data.climbFinished ? state.currentIndex : data.currentQuestionIndex;
+                        state.pendingClimbFinished = data.climbFinished;
+                        navigate('CLIMB_RESULT');
+                    }
                 } else {
+                    state.currentIndex = data.currentQuestionIndex;
                     if (state.timerInterval) {
                         clearQuestionTimer();
                         startQuestionTimer();
@@ -2066,11 +2080,38 @@ function listenToRoom(code) {
                                 pPoints--;
                             }
                         });
+                    } else if (state.selectedMode === 'CLIMB') {
+                        let sortedAnswers = Object.entries(answers).map(([name, ans]) => ({ name, ...ans }));
+                        sortedAnswers.sort((a, b) => a.time - b.time);
+
+                        let pPoints = 2; // Fastest gets 2, slower gets 1
+
+                        sortedAnswers.forEach(ans => {
+                            let currentScore = data.players[ans.name].score || 0;
+                            if (ans.isCorrect) {
+                                updates[`players.${ans.name}.score`] = Math.min(10, currentScore + pPoints);
+                                pPoints--;
+                            } else {
+                                updates[`players.${ans.name}.score`] = Math.max(0, currentScore - 1);
+                            }
+                        });
                     }
 
                     updates[`answers`] = {};
 
-                    if (data.currentQuestionIndex >= data.playlist.length - 1 && state.selectedMode !== 'CLIMB') {
+                    if (state.selectedMode === 'CLIMB') {
+                        let someoneWon = false;
+                        for (const p of Object.keys(data.players)) {
+                            const newScore = updates[`players.${p}.score`] !== undefined ? updates[`players.${p}.score`] : (data.players[p].score || 0);
+                            if (newScore >= 10) someoneWon = true;
+                        }
+                        
+                        if (someoneWon || data.currentQuestionIndex >= data.playlist.length - 1) {
+                            updates[`climbFinished`] = true;
+                        } else {
+                            updates[`currentQuestionIndex`] = data.currentQuestionIndex + 1;
+                        }
+                    } else if (data.currentQuestionIndex >= data.playlist.length - 1) {
                         Object.keys(data.players).forEach(p => {
                             updates[`players.${p}.finished`] = true;
                         });
@@ -2784,3 +2825,9 @@ document.addEventListener('DOMContentLoaded', () => {
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     setTimeout(playRandomBgm, 1000);
 }
+
+// Automatically clear localStorage and sessionStorage when the tab is closed
+window.addEventListener('beforeunload', () => {
+    localStorage.clear();
+    sessionStorage.clear();
+});
