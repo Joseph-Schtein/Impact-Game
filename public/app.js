@@ -158,6 +158,8 @@ function render() {
         case 'MULTIPLAYER_RESULTS': html = renderMultiplayerResults(); break;
         case 'PLAYING_HANGMAN': html = renderHangman(); break;
         case 'HANGMAN_RESULTS': html = renderHangmanResults(); break;
+        case 'ADMIN_LOGIN': html = renderAdminLogin(); break;
+        case 'ADMIN_PANEL': html = renderAdminPanel(); break;
     }
     appContainer.innerHTML = html;
 }
@@ -226,6 +228,7 @@ function renderMenu() {
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('single_btn')}</button>
                 <button class="neo-button bg-multiplayer" style="height:60px; margin-top: 12px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('multi_btn')}</button>
                 <button class="neo-button bg-coral" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
+                <button class="neo-button" style="height:60px; margin-top: 12px; background: #666; color: white;" onclick="navigate('ADMIN_LOGIN')">Admin Panel</button>
             </div>
         </div>`;
 }
@@ -718,7 +721,7 @@ function renderClimbResult() {
                     state.currentIndex = state.pendingQuestionIndex;
                     state.pendingQuestionIndex = undefined;
                 }
-                
+
                 if (isGameOver) {
                     if (state.isMultiplayer) {
                         try {
@@ -1261,10 +1264,28 @@ function renderAddQuestion() {
     `;
 }
 
+async function filterContentWithAgent(contentData) {
+    if (!window.functions || !window.httpsCallable) {
+        console.warn("Firebase Functions not initialized");
+        return "APPROVE";
+    }
+    try {
+        const checkQuestion = window.httpsCallable(window.functions, 'checkQuestionWithAgent');
+        const result = await checkQuestion(contentData);
+        return result.data.status || "APPROVE";
+    } catch (e) {
+        console.error("Cloud function error:", e);
+        return "APPROVE"; // Fail open
+    }
+}
+
 async function saveNewQuestion() {
     const category = document.querySelector('input[name="newQCategory"]:checked').value;
     const qType = document.getElementById('newQType').value;
     const src = state.currentLang.code;
+    const mode = state.verificationMode || 'AI_ONLY';
+    const needsAI = mode === 'AI_ONLY' || mode === 'BOTH';
+    const needsManual = mode === 'MANUAL_ONLY' || mode === 'BOTH';
 
     // UI Feedback
     const btn = document.getElementById('saveQBtn');
@@ -1290,6 +1311,19 @@ async function saveNewQuestion() {
                 btn.innerText = "שמור שאלה"; btn.disabled = false;
                 return;
             }
+
+            if (needsAI) {
+                btn.innerText = "בודק תוכן בענן...";
+                const agentStatus = await filterContentWithAgent({
+                    type: 'trivia', text: qText, options: opts, mediaUrl: qMediaUrl
+                });
+                if (agentStatus === "REJECT") {
+                    showToast("השאלה נחסמה: זוהה תוכן לא הולם (מילים פוגעניות או תמונות)", "error", 5000);
+                    btn.innerText = "שמור שאלה"; btn.disabled = false;
+                    return;
+                }
+            }
+            btn.innerText = "מתרגם ושומר...";
 
             const tQ = await translateToAllLangs(qText, src);
             const translatedOpts = await Promise.all(opts.map(o => translateToAllLangs(o, src)));
@@ -1318,13 +1352,32 @@ async function saveNewQuestion() {
                 return;
             }
 
-            await window.addDoc(window.collection(window.db, "hangmanWords"), {
+            if (needsAI) {
+                btn.innerText = "בודק תוכן בענן...";
+                const agentStatus = await filterContentWithAgent({
+                    type: 'hangman', word: word
+                });
+                if (agentStatus === "REJECT") {
+                    showToast("הביטוי נחסם: זוהה תוכן לא הולם", "error", 5000);
+                    btn.innerText = "שמור שאלה"; btn.disabled = false;
+                    return;
+                }
+            }
+            btn.innerText = "מתרגם ושומר...";
+
+            const docData = {
                 word: word,
                 category: category,
                 lang: state.currentLang.code,
                 addedAt: window.serverTimestamp()
-            });
-            showToast("✅ מילת ההגמן נשמרה בהצלחה!", 'success', 3500);
+            };
+            if (needsManual) {
+                await window.addDoc(window.collection(window.db, "pendingQuestions"), { ...docData, targetCollection: "hangmanWords" });
+                showToast("✅ נשלח לאישור מנהל!", 'success', 3500);
+            } else {
+                await window.addDoc(window.collection(window.db, "hangmanWords"), docData);
+                showToast("✅ מילת ההגמן נשמרה בהצלחה!", 'success', 3500);
+            }
             navigate('MENU');
             return;
 
@@ -1345,6 +1398,19 @@ async function saveNewQuestion() {
                 return;
             }
 
+            if (needsAI) {
+                btn.innerText = "בודק תוכן בענן...";
+                const agentStatus = await filterContentWithAgent({
+                    type: 'match_pair', pairs: pairs
+                });
+                if (agentStatus === "REJECT") {
+                    showToast("הזוגות נחסמו: זוהה תוכן לא הולם", "error", 5000);
+                    btn.innerText = "שמור שאלה"; btn.disabled = false;
+                    return;
+                }
+            }
+            btn.innerText = "מתרגם ושומר...";
+
             // Translate all pairs
             const translatedPairs = await Promise.all(pairs.map(async p => {
                 const tLeft = await translateToAllLangs(p.left, src);
@@ -1364,8 +1430,13 @@ async function saveNewQuestion() {
         }
 
         // Save to Firebase Firestore
-        await window.addDoc(window.collection(window.db, "questions"), newQuestion);
-        showToast("✅ השאלה תורגמה ונשמרה בהצלחה!", 'success', 3500);
+        if (needsManual) {
+            await window.addDoc(window.collection(window.db, "pendingQuestions"), { ...newQuestion, targetCollection: "questions" });
+            showToast("✅ נשלח לאישור מנהל!", 'success', 3500);
+        } else {
+            await window.addDoc(window.collection(window.db, "questions"), newQuestion);
+            showToast("✅ השאלה תורגמה ונשמרה בהצלחה!", 'success', 3500);
+        }
         navigate('MENU');
 
     } catch (error) {
@@ -1376,6 +1447,14 @@ async function saveNewQuestion() {
 }
 
 function initDB() {
+    if (!window.db) return;
+    window.onSnapshot(window.doc(window.db, "system", "config"), (docSnap) => {
+        if (docSnap.exists()) {
+            state.verificationMode = docSnap.data().verificationMode || "AI_ONLY";
+        } else {
+            state.verificationMode = "AI_ONLY";
+        }
+    });
     // Listen to the "questions" collection in your existing Firestore
     if (!window.db) {
         console.error("Firebase is not initialized yet!");
@@ -1843,7 +1922,7 @@ window.createMultiplayerRoom = async () => {
     if (catInput !== 'all') {
         playlist = playlist.filter(q => q.category === catInput);
     }
-    
+
     if (playlist.length === 0 && state.selectedMode !== 'HANGMAN') {
         showToast("אין מספיק שאלות בנושא זה!", "error");
         return;
@@ -2105,7 +2184,7 @@ function listenToRoom(code) {
                             const newScore = updates[`players.${p}.score`] !== undefined ? updates[`players.${p}.score`] : (data.players[p].score || 0);
                             if (newScore >= 10) someoneWon = true;
                         }
-                        
+
                         if (someoneWon || data.currentQuestionIndex >= data.playlist.length - 1) {
                             updates[`climbFinished`] = true;
                         } else {
@@ -2713,7 +2792,7 @@ let _audioUnlocked = false;
 function _unlockAudio() {
     if (_audioUnlocked) return;
     _audioUnlocked = true;
-    
+
     // Play and immediately pause all sound effects to unlock them for mobile
     [sfxCorrect, sfxWrong, sfxClick].forEach(a => {
         const originalVol = a.volume;
@@ -2724,7 +2803,7 @@ function _unlockAudio() {
                 a.pause();
                 a.currentTime = 0;
                 a.volume = originalVol;
-            }).catch(() => {});
+            }).catch(() => { });
         }
     });
 
@@ -2742,7 +2821,7 @@ window.updateSFXVol = (val) => {
 };
 
 window.updateBGMVol = (val) => {
-    if(currentBgm) {
+    if (currentBgm) {
         currentBgm.volume = val / 100;
     }
 };
@@ -2750,13 +2829,13 @@ window.updateBGMVol = (val) => {
 window.playSfx = (type) => {
     if (type === 'correct') {
         sfxCorrect.currentTime = 0;
-        sfxCorrect.play().catch(e=>console.log(e));
+        sfxCorrect.play().catch(e => console.log(e));
     } else if (type === 'wrong') {
         sfxWrong.currentTime = 0;
-        sfxWrong.play().catch(e=>console.log(e));
+        sfxWrong.play().catch(e => console.log(e));
     } else if (type === 'click') {
         sfxClick.currentTime = 0;
-        sfxClick.play().catch(e=>console.log(e));
+        sfxClick.play().catch(e => console.log(e));
     }
 };
 
@@ -2776,7 +2855,7 @@ function playRandomBgm() {
         p.catch(e => {
             // Autoplay policy fallback
             const playBgmOnInteract = () => {
-                if(currentBgm && currentBgm.paused) currentBgm.play().catch(err=>console.log(err));
+                if (currentBgm && currentBgm.paused) currentBgm.play().catch(err => console.log(err));
                 document.removeEventListener('click', playBgmOnInteract);
                 document.removeEventListener('touchstart', playBgmOnInteract);
             };
@@ -2797,7 +2876,7 @@ let audioPanelTimeout;
 
 window.toggleAudioPanel = () => {
     const panel = document.getElementById('audio-panel');
-    if(panel.classList.contains('show')) {
+    if (panel.classList.contains('show')) {
         panel.classList.remove('show');
     } else {
         panel.classList.add('show');
@@ -2809,7 +2888,7 @@ window.startAudioPanelTimeout = () => {
     clearTimeout(audioPanelTimeout);
     audioPanelTimeout = setTimeout(() => {
         const panel = document.getElementById('audio-panel');
-        if(panel) panel.classList.remove('show');
+        if (panel) panel.classList.remove('show');
     }, 3000);
 };
 
@@ -2831,3 +2910,171 @@ window.addEventListener('beforeunload', () => {
     localStorage.clear();
     sessionStorage.clear();
 });
+
+
+// --- ADMIN UI ---
+function renderAdminLogin() {
+    return `
+        <div class="screen-wrapper">
+            <h1 class="main-title">Admin Login</h1>
+            <div style="background: var(--white); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%; border: 3px solid var(--app-text); margin-bottom: 20px;">
+                <label class="bold color-indigo">Password:</label>
+                <input type="password" id="adminPasswordInput" class="neo-input" placeholder="Enter password...">
+                <button class="neo-button bg-indigo" style="margin-top: 15px;" onclick="verifyAdminLogin()">Login</button>
+            </div>
+            <button class="neo-button bg-coral" style="max-width: 150px;" onclick="navigate('MENU')">${getString('back')}</button>
+        </div>
+    `;
+}
+
+window.verifyAdminLogin = async () => {
+    const pwd = document.getElementById('adminPasswordInput').value;
+    if (!pwd) return;
+    
+    if (!window.functions) {
+        showToast("Firebase Functions not initialized", "error");
+        return;
+    }
+    
+    document.getElementById('adminPasswordInput').disabled = true;
+    showToast("Verifying...", "info");
+    
+    try {
+        const verifyFn = window.httpsCallable(window.functions, 'verifyAdminPassword');
+        const res = await verifyFn({ password: pwd });
+        if (res.data.success) {
+            state.isAdmin = true;
+            navigate('ADMIN_PANEL');
+        } else {
+            showToast("Incorrect password!", "error");
+            document.getElementById('adminPasswordInput').disabled = false;
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("Error verifying password", "error");
+        document.getElementById('adminPasswordInput').disabled = false;
+    }
+};
+
+function renderAdminPanel() {
+    if (!state.isAdmin) {
+        return renderAdminLogin(); // fallback
+    }
+    
+    const m = state.verificationMode || "AI_ONLY";
+    
+    let html = `
+        <div class="screen-wrapper" style="align-items: flex-start; overflow-y: auto; display: block; padding-top: 20px;">
+            <h1 class="main-title" style="text-align:center;">Admin Dashboard</h1>
+            
+            <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin: 0 auto 20px; border: 3px solid var(--app-text);">
+                <h3 class="color-indigo">Verification Settings</h3>
+                <p style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">Choose how user-submitted questions are verified.</p>
+                
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <label><input type="radio" name="vMode" value="AI_ONLY" ${m === 'AI_ONLY' ? 'checked' : ''}> AI Verification Only</label>
+                    <label><input type="radio" name="vMode" value="MANUAL_ONLY" ${m === 'MANUAL_ONLY' ? 'checked' : ''}> Manual Verification Only</label>
+                    <label><input type="radio" name="vMode" value="BOTH" ${m === 'BOTH' ? 'checked' : ''}> Both (AI + Manual)</label>
+                    <label><input type="radio" name="vMode" value="NONE" ${m === 'NONE' ? 'checked' : ''}> None (Auto-Approve)</label>
+                </div>
+                <button class="neo-button bg-indigo" style="margin-top: 15px; max-width: 200px; padding: 10px;" onclick="saveAdminSettings()">Save Settings</button>
+            </div>
+            
+            <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin: 0 auto 20px; border: 3px solid var(--app-text);">
+                <h3 class="color-indigo">Pending Review</h3>
+                <div id="pendingQuestionsContainer">Loading...</div>
+            </div>
+            
+            <div style="text-align:center; padding-bottom: 40px;">
+                <button class="neo-button bg-coral" style="max-width: 150px;" onclick="navigate('MENU')">${getString('back')}</button>
+            </div>
+        </div>
+    `;
+    
+    // Load pending immediately
+    loadPendingQuestions();
+    
+    return html;
+}
+
+window.saveAdminSettings = async () => {
+    const val = document.querySelector('input[name="vMode"]:checked').value;
+    try {
+        await window.setDoc(window.doc(window.db, "system", "config"), { verificationMode: val }, { merge: true });
+        showToast("Settings saved!", "success");
+    } catch (e) {
+        console.error(e);
+        showToast("Failed to save settings", "error");
+    }
+};
+
+window.loadPendingQuestions = async () => {
+    try {
+        const q = window.query(window.collection(window.db, "pendingQuestions"));
+        const snap = await window.getDocs(q);
+        let listHtml = "";
+        
+        if (snap.empty) {
+            listHtml = "<p>No questions pending review.</p>";
+        } else {
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                const id = docSnap.id;
+                let preview = "Question: ";
+                if (data.type === 'hangman') preview = "Hangman: " + data.word;
+                else if (data.type === 'match_pair') preview = "Match Pairs: " + data.pairsMap?.en?.length + " pairs";
+                else preview = "Trivia: " + (data.textMap?.en || data.textMap?.he || "?");
+                
+                listHtml += `
+                    <div style="border: 2px solid var(--app-text); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #f9f9f9;">
+                        <strong>Type:</strong> ${data.type} <br>
+                        <strong>Preview:</strong> ${preview} <br>
+                        <strong>Target:</strong> ${data.targetCollection} <br>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="neo-button bg-indigo" style="padding: 5px 10px; font-size:14px;" onclick="approvePending('${id}', '${data.targetCollection}')">Approve</button>
+                            <button class="neo-button bg-coral" style="padding: 5px 10px; font-size:14px;" onclick="rejectPending('${id}')">Reject</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        document.getElementById('pendingQuestionsContainer').innerHTML = listHtml;
+    } catch (e) {
+        console.error(e);
+        document.getElementById('pendingQuestionsContainer').innerHTML = "<p>Error loading pending questions.</p>";
+    }
+};
+
+window.approvePending = async (id, targetCollection) => {
+    if (!confirm("Approve this question?")) return;
+    try {
+        const docRef = window.doc(window.db, "pendingQuestions", id);
+        const snap = await window.getDoc(docRef);
+        if (!snap.exists()) return;
+        
+        const data = snap.data();
+        delete data.targetCollection; // clean up before inserting
+        
+        await window.addDoc(window.collection(window.db, targetCollection), data);
+        await window.deleteDoc(docRef); // delete from pending
+        
+        showToast("Approved and moved to live!", "success");
+        loadPendingQuestions(); // refresh
+    } catch(e) {
+        console.error(e);
+        showToast("Error approving", "error");
+    }
+};
+
+window.rejectPending = async (id) => {
+    if (!confirm("Reject and delete this question permanently?")) return;
+    try {
+        const docRef = window.doc(window.db, "pendingQuestions", id);
+        await window.deleteDoc(docRef);
+        showToast("Question rejected", "success");
+        loadPendingQuestions(); // refresh
+    } catch(e) {
+        console.error(e);
+        showToast("Error rejecting", "error");
+    }
+};
