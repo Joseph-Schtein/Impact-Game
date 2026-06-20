@@ -1122,3 +1122,135 @@ h2 {
 #audio-panel input[type="range"]:last-child {
     margin-bottom: 0;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   ── Image Input Controls (Add Question Screen) ──
+══════════════════════════════════════════════════════════════ */
+
+.img-mode-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid var(--app-text);
+    width: fit-content;
+}
+
+.img-mode-btn {
+    padding: 7px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    background: var(--white);
+    color: var(--app-text);
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    font-family: inherit;
+    box-shadow: none;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    border-radius: 0;
+    display: inline-block;
+}
+
+.img-mode-btn.active {
+    background: var(--app-text);
+    color: var(--white);
+}
+
+.img-mode-btn:hover:not(.active) {
+    background: rgba(33, 2, 110, 0.08);
+    transform: none;
+    box-shadow: none;
+}
+
+.img-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.img-file-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 2px dashed rgba(33, 2, 110, 0.3);
+    border-radius: 12px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.7);
+    font-weight: 700;
+    font-size: 14px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.img-file-label:hover {
+    border-color: var(--app-text);
+    background: var(--white);
+}
+
+.img-file-label input[type="file"] {
+    display: none;
+}
+
+.img-preview-thumb {
+    width: 100%;
+    max-height: 140px;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 2px solid rgba(33, 2, 110, 0.15);
+    margin-top: 6px;
+    display: none;
+    background: var(--white);
+}
+
+/* ── Trivia Question Image ── */
+.trivia-question-image {
+    width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    border-radius: 12px;
+    border: 2px solid rgba(33, 2, 110, 0.12);
+    margin: 10px 0;
+    display: block;
+    background: var(--white);
+    box-shadow: 0 3px 12px rgba(33, 2, 110, 0.08);
+}
+
+@keyframes imgFadeIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Match Pair Item Image ── */
+.match-item-img {
+    width: 100%;
+    max-height: 70px;
+    object-fit: contain;
+    border-radius: 8px;
+    pointer-events: none;
+    display: block;
+    margin: 0 auto;
+}
+
+/* ── Hangman Word Hint Image ── */
+.hangman-hint-image {
+    width: auto;
+    max-width: 90%;
+    max-height: 110px;
+    object-fit: contain;
+    border-radius: 12px;
+    border: 2px solid rgba(33, 2, 110, 0.12);
+    margin: 8px auto;
+    display: block;
+    background: var(--white);
+    box-shadow: 0 3px 10px rgba(33, 2, 110, 0.08);
+}
+
+.hangman-hint-image.small {
+    max-height: 64px;
+    border-radius: 8px;
+}

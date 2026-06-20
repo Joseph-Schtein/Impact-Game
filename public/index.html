@@ -36,7 +36,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, getDocs, serverTimestamp, doc, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, getDocs, serverTimestamp, doc, setDoc, updateDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-analytics.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-functions.js";
 
@@ -69,6 +69,7 @@
         window.setDoc = setDoc;
         window.updateDoc = updateDoc;
         window.getDoc = getDoc;
+        window.deleteDoc = deleteDoc;
         
         const functions = getFunctions(app, "us-central1");
         window.functions = functions;

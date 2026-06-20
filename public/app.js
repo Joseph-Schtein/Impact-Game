@@ -78,6 +78,7 @@ const state = {
     hangmanWrong: [],
     hangmanDone: false,
     hangmanWon: false,
+    hangmanWordImage: null,
     hangmanOpponentWrongCount: 0,
     hangmanOpponentDone: false,
     hangmanOpponentWon: false,
@@ -130,6 +131,133 @@ async function translateToAllLangs(text, sourceLang) {
     }));
     return results;
 }
+
+// ══════════════════════════════════════════════════════════════
+// --- IMAGE UTILITIES ---
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Compresses an image File to a JPEG Data URL using canvas.
+ * Max dimension: 800px. Quality: 0.72 (good balance size/clarity).
+ * Typical output: 40–80 KB from a 5MB photo.
+ */
+function compressImage(file) {
+    return _compressImageInternal(file, 800, 0.72);
+}
+
+/**
+ * Tighter compression for matching-pair images.
+ * Max dimension: 600px. Quality: 0.55.
+ * Typical output: 20–30 KB — keeps 10-pair×2-side documents well under Firestore's 1MB limit.
+ */
+function compressImageSmall(file) {
+    return _compressImageInternal(file, 600, 0.55);
+}
+
+function _compressImageInternal(file, maxDim, quality) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+                    else { width = Math.round(width * maxDim / height); height = maxDim; }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+/**
+ * Called when a file is selected in an image file input.
+ * Compresses and stores result in a hidden data field, updates preview.
+ * preset='small' uses the tighter 600px/0.55 compressor (for pair images).
+ */
+window.handleImageFile = async (input, dataFieldId, previewId, preset) => {
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('אנא בחר קובץ תמונה תקין', 'error'); return; }
+    try {
+        const dataUrl = preset === 'small'
+            ? await compressImageSmall(file)
+            : await compressImage(file);
+        const dataField = document.getElementById(dataFieldId);
+        if (dataField) dataField.value = dataUrl;
+        const preview = document.getElementById(previewId);
+        if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
+        // clear URL field if exists
+        const urlField = document.getElementById(dataFieldId + '_url');
+        if (urlField) urlField.value = '';
+    } catch(e) {
+        console.error(e);
+        showToast('שגיאה בעיבוד התמונה', 'error');
+    }
+};
+
+/**
+ * Called when a URL is typed in image URL input.
+ * Stores it in hidden data field, updates preview.
+ */
+window.handleImageUrl = (urlFieldId, dataFieldId, previewId) => {
+    const urlField = document.getElementById(urlFieldId);
+    if (!urlField) return;
+    const url = urlField.value.trim();
+    const dataField = document.getElementById(dataFieldId);
+    if (dataField) dataField.value = url;
+    const preview = document.getElementById(previewId);
+    if (preview) {
+        if (url) { preview.src = url; preview.style.display = 'block'; }
+        else { preview.src = ''; preview.style.display = 'none'; }
+    }
+};
+
+/**
+ * Reads the final image value (Data URL or URL) from a data field.
+ * Returns '' if empty.
+ */
+function getImageValue(dataFieldId) {
+    const el = document.getElementById(dataFieldId);
+    return el ? el.value.trim() : '';
+}
+
+/**
+ * Toggles between Text and Image mode for a pair side.
+ * prefix is like 'left-0' or 'right-2'.
+ */
+window.updateAllPairModes = () => {
+    const rMode = document.getElementById('globalRightMode')?.value || 'text';
+    const lMode = document.getElementById('globalLeftMode')?.value || 'text';
+    
+    const container = document.getElementById('pairsContainer');
+    if (!container) return;
+    const rows = container.querySelectorAll('.pair-row');
+    rows.forEach(row => {
+        const leftTextArea = row.querySelector('[id^="pair-text-area-left-"]');
+        const leftImgArea  = row.querySelector('[id^="pair-img-area-left-"]');
+        if (leftTextArea && leftImgArea) {
+            leftTextArea.style.display = rMode === 'text' ? 'block' : 'none';
+            leftImgArea.style.display  = rMode === 'text' ? 'none' : 'block';
+        }
+        
+        const rightTextArea = row.querySelector('[id^="pair-text-area-right-"]');
+        const rightImgArea  = row.querySelector('[id^="pair-img-area-right-"]');
+        if (rightTextArea && rightImgArea) {
+            rightTextArea.style.display = lMode === 'text' ? 'block' : 'none';
+            rightImgArea.style.display  = lMode === 'text' ? 'none' : 'block';
+        }
+    });
+};
 
 // --- RENDER ENGINE ---
 function render() {
@@ -228,7 +356,7 @@ function renderMenu() {
                 <button class="neo-button bg-indigo" style="height:60px;" onclick="navigate('MODE_SELECT')">${getString('single_btn')}</button>
                 <button class="neo-button bg-multiplayer" style="height:60px; margin-top: 12px;" onclick="navigate('MODE_SELECT_MULTI')">${getString('multi_btn')}</button>
                 <button class="neo-button bg-coral" style="height:60px; margin-top: 12px;" onclick="navigate('ADD_QUESTION')">${getString('add_btn')}</button>
-                <button class="neo-button" style="height:60px; margin-top: 12px; background: #666; color: white;" onclick="navigate('ADMIN_LOGIN')">Admin Panel</button>
+                <button class="neo-button" style="height:60px; margin-top: 12px; background: #666; color: white;" onclick="navigate('ADMIN_LOGIN')">פאנל מנהל</button>
             </div>
         </div>`;
 }
@@ -354,16 +482,9 @@ function renderClassic() {
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <div style="display: flex; flex-direction: ${state.currentLang.isRtl ? 'row-reverse' : 'row'}; width: 100%; gap: 16px;">
-                <div class="media-base-container" style="display: none; flex: 1; justify-content: center; align-items: center;">
-                    ${q.mediaUrl ? `<img src="${q.mediaUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: contain;" alt="Question Media" />` : ''}
-                </div>
-                <div style="flex: 2; display: flex; flex-direction: column;">
-                    <h2 style="font-size: 20px;">${qText}</h2>
-                    <div class="spacer-lg"></div>
-                    ${generateOptionsHTML(opts)}
-                </div>
-            </div>
+            <h2 style="font-size: 20px;">${qText}</h2>
+            ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />` : ''}
+            ${generateOptionsHTML(opts)}
             <div style="margin-top:auto; width:100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                         onclick="checkAnswer()">${getString('check_btn')}</button>
@@ -397,16 +518,9 @@ function renderBetBurn() {
         content = `
             <p class="color-coral bold" style="font-size:18px;">הימור: <i class="uil uil-bolt"></i> ${state.userBetInput}</p>
             <div class="spacer-md"></div>
-            <div style="display: flex; flex-direction: ${state.currentLang.isRtl ? 'row-reverse' : 'row'}; width: 100%; gap: 16px;">
-                <div class="media-base-container" style="display: none; flex: 1; justify-content: center; align-items: center;">
-                    ${q.mediaUrl ? `<img src="${q.mediaUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: contain;" alt="Question Media" />` : ''}
-                </div>
-                <div style="flex: 2; display: flex; flex-direction: column;">
-                    <h2 style="font-size: 22px;">${qText}</h2>
-                    <div class="spacer-lg"></div>
-                    ${generateOptionsHTML(opts)}
-                </div>
-            </div>
+            <h2 style="font-size: 22px;">${qText}</h2>
+            ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />` : ''}
+            ${generateOptionsHTML(opts)}
             <div style="margin-top:auto; width: 100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                         onclick="checkBetAnswer()">${getString('check_btn')}</button>
@@ -666,15 +780,10 @@ function renderClimb() {
 
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <div class="${panelAnimClass}" style="display: flex; flex-direction: ${state.currentLang.isRtl ? 'row-reverse' : 'row'}; width: 100%; gap: 16px;">
-                <div class="media-base-container" style="display: none; flex: 1; justify-content: center; align-items: center;">
-                    ${q.mediaUrl ? `<img src="${q.mediaUrl}" style="max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: contain;" alt="Question Media" />` : ''}
-                </div>
-                <div style="flex: 2; display: flex; flex-direction: column;">
-                    <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
-                    <div class="spacer-lg"></div>
-                    ${generateOptionsHTML(opts)}
-                </div>
+            <div class="${panelAnimClass}">
+                <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
+                ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />` : ''}
+                ${generateOptionsHTML(opts)}
             </div>
 
             <div style="margin-top:auto; width:100%;">
@@ -776,8 +885,8 @@ function renderMatchPairs() {
     if (!state.currentMatchPool || state.currentMatchPool.questionIndex !== state.currentIndex) {
         state.currentMatchPool = {
             questionIndex: state.currentIndex,
-            lefts: shuffleArray(pairs.map((p, idx) => ({ text: p.left, id: idx, matched: false }))),
-            rights: shuffleArray(pairs.map((p, idx) => ({ text: p.right, id: idx, matched: false })))
+            lefts: shuffleArray(pairs.map((p, idx) => ({ text: p.left || null, img: p.leftImg || null, id: idx, matched: false }))),
+            rights: shuffleArray(pairs.map((p, idx) => ({ text: p.right || null, img: p.rightImg || null, id: idx, matched: false })))
         };
         state.matchSelections = { left: null, right: null };
         state.matchedPairsCount = 0;
@@ -794,9 +903,11 @@ function renderMatchPairs() {
         if (item.matched) cls += ' matched';
         else if (state.matchSelections.left === i) cls += ' selected';
         if (state.matchErrorLeft === i) cls += ' error';
-
+        const content = item.img
+            ? `<img class="match-item-img" src="${item.img}" alt="" />`
+            : (item.text || '');
         return `<div class="${cls}" id="match-left-${i}" 
-                onclick="${item.matched ? '' : `selectMatch('left', ${i})`}">${item.text}</div>`;
+                onclick="${item.matched ? '' : `selectMatch('left', ${i})`}">${content}</div>`;
     }).join('');
 
     let rightColHtml = pool.rights.map((item, i) => {
@@ -804,9 +915,11 @@ function renderMatchPairs() {
         if (item.matched) cls += ' matched';
         else if (state.matchSelections.right === i) cls += ' selected';
         if (state.matchErrorRight === i) cls += ' error';
-
+        const content = item.img
+            ? `<img class="match-item-img" src="${item.img}" alt="" />`
+            : (item.text || '');
         return `<div class="${cls}" id="match-right-${i}" 
-                onclick="${item.matched ? '' : `selectMatch('right', ${i})`}">${item.text}</div>`;
+                onclick="${item.matched ? '' : `selectMatch('right', ${i})`}">${content}</div>`;
     }).join('');
 
     setTimeout(window.drawMatchLines, 50);
@@ -1106,22 +1219,18 @@ window.addPairRow = (afterRow = null) => {
         showToast("ניתן להוסיף עד 10 זוגות", 'info');
         return;
     }
+    if (window._pairRowCounter === undefined) window._pairRowCounter = 0;
+    const idx = window._pairRowCounter++;
     const row = document.createElement('div');
-    row.className = 'pair-row';
-    row.style.display = 'flex';
-    row.style.gap = '10px';
-    row.style.marginBottom = '10px';
-    row.style.alignItems = 'center';
-    row.innerHTML = `
-        <input type="text" class="neo-input match-left" placeholder="צד ימין (לדוגמה: לופי)" style="margin-bottom:0; flex: 1;">
-        <input type="text" class="neo-input match-right" placeholder="צד שמאל (לדוגמה: וואן פיס)" style="margin-bottom:0; flex: 1;">
-    `;
+    row.innerHTML = buildPairRowHtml(idx);
+    const actualRow = row.firstElementChild;
     if (afterRow && afterRow.nextSibling) {
-        container.insertBefore(row, afterRow.nextSibling);
+        container.insertBefore(actualRow, afterRow.nextSibling);
     } else {
-        container.appendChild(row);
+        container.appendChild(actualRow);
     }
     window.updatePairButtons();
+    window.updateAllPairModes();
 };
 
 window.removePairRow = (row) => {
@@ -1182,6 +1291,42 @@ window.updatePairButtons = () => {
     }
 };
 
+function buildPairRowHtml(idx) {
+    return `
+    <div class="pair-row" style="display:flex; gap:8px; margin-bottom:12px; align-items:flex-start;">
+        <!-- LEFT SIDE -->
+        <div style="flex:1; display:flex; flex-direction:column;">
+            <div id="pair-text-area-left-${idx}">
+                <input type="text" class="neo-input match-left" placeholder="צד ימין" style="margin-bottom:0;">
+            </div>
+            <div id="pair-img-area-left-${idx}" style="display:none;">
+                <input type="hidden" class="match-left-img" id="pair-img-data-left-${idx}">
+                <label class="img-file-label">
+                    <input type="file" accept="image/*" onchange="window.handleImageFile(this,'pair-img-data-left-${idx}','pair-img-prev-left-${idx}','small')">
+                    📷 בחר תמונה
+                </label>
+                <input type="text" id="pair-img-data-left-${idx}_url" class="neo-input" placeholder="או הכנס URL תמונה" style="margin-top:4px; margin-bottom:0; font-size:13px;" oninput="window.handleImageUrl('pair-img-data-left-${idx}_url','pair-img-data-left-${idx}','pair-img-prev-left-${idx}')">
+                <img id="pair-img-prev-left-${idx}" class="img-preview-thumb" alt="תצוגה מקדימה">
+            </div>
+        </div>
+        <!-- RIGHT SIDE -->
+        <div style="flex:1; display:flex; flex-direction:column;">
+            <div id="pair-text-area-right-${idx}">
+                <input type="text" class="neo-input match-right" placeholder="צד שמאל" style="margin-bottom:0;">
+            </div>
+            <div id="pair-img-area-right-${idx}" style="display:none;">
+                <input type="hidden" class="match-right-img" id="pair-img-data-right-${idx}">
+                <label class="img-file-label">
+                    <input type="file" accept="image/*" onchange="window.handleImageFile(this,'pair-img-data-right-${idx}','pair-img-prev-right-${idx}','small')">
+                    📷 בחר תמונה
+                </label>
+                <input type="text" id="pair-img-data-right-${idx}_url" class="neo-input" placeholder="או הכנס URL תמונה" style="margin-top:4px; margin-bottom:0; font-size:13px;" oninput="window.handleImageUrl('pair-img-data-right-${idx}_url','pair-img-data-right-${idx}','pair-img-prev-right-${idx}')">
+                <img id="pair-img-prev-right-${idx}" class="img-preview-thumb" alt="תצוגה מקדימה">
+            </div>
+        </div>
+    </div>`;
+}
+
 function renderAddQuestion() {
     // Generate radio buttons for categories
     const cats = categoryList.map(c =>
@@ -1192,12 +1337,11 @@ function renderAddQuestion() {
 
     let initialPairs = '';
     for (let i = 0; i < 5; i++) {
-        initialPairs += `
-        <div class="pair-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
-            <input type="text" class="neo-input match-left" placeholder="צד ימין (לדוגמה: לופי)" style="margin-bottom:0; flex: 1;">
-            <input type="text" class="neo-input match-right" placeholder="צד שמאל (לדוגמה: וואן פיס)" style="margin-bottom:0; flex: 1;">
-        </div>`;
+        initialPairs += buildPairRowHtml(i);
     }
+
+    // Track next pair index for dynamic adds
+    window._pairRowCounter = 5;
 
     setTimeout(window.updatePairButtons, 0);
 
@@ -1205,7 +1349,7 @@ function renderAddQuestion() {
         <div class="screen-wrapper" style="align-items: center; padding-bottom: 40px;">
             <h2 class="main-title" style="margin-top: 0;">הוסף שאלה חדשה</h2>
             
-            <div style="width: 100%; max-width: 400px; text-align: right;">
+            <div style="width: 100%; max-width: 440px; text-align: right;">
                 <label class="bold">סוג שאלה</label>
                 <select id="newQType" class="neo-input" style="height: 58px; font-weight: bold; background-color: var(--white);" onchange="
                     document.getElementById('triviaFields').style.display = this.value === 'trivia' ? 'block' : 'none';
@@ -1217,16 +1361,21 @@ function renderAddQuestion() {
                     <option value="hangman">משחק הגמן (מילה או ביטוי)</option>
                 </select>
 
+                <!-- ══ TRIVIA FIELDS ══ -->
                 <div id="triviaFields">
                     <label class="bold">טקסט השאלה</label>
                     <input type="text" id="newQText" class="neo-input" placeholder="לדוגמא, מי היוצר של וואן פיס?">
                     
-                    <div id="newQMediaContainer" style="display: none;">
-                        <label class="bold">קישור לתמונה/וידאו (לא חובה)</label>
-                        <input type="text" id="newQMediaUrl" class="neo-input" placeholder="הכנס קישור ל-URL של תמונה/וידאו">
-                    </div>
+                    <label class="bold">תמונה לשאלה (לא חובה)</label>
+                    <input type="hidden" id="triviaImgData">
+                    <label class="img-file-label">
+                        <input type="file" accept="image/*" onchange="window.handleImageFile(this,'triviaImgData','triviaImgPreview')">
+                        📷 בחר תמונה מהמכשיר
+                    </label>
+                    <input type="text" id="triviaImgData_url" class="neo-input" placeholder="או הכנס URL של תמונה" style="font-size:13px; margin-top:4px;" oninput="window.handleImageUrl('triviaImgData_url','triviaImgData','triviaImgPreview')">
+                    <img id="triviaImgPreview" class="img-preview-thumb" alt="תצוגה מקדימה">
                     
-                    <label class="bold">אפשרויות (4)</label>
+                    <label class="bold" style="margin-top:8px;">אפשרויות (4)</label>
                     <input type="text" id="newQOpt1" class="neo-input" placeholder="אפשרות 1" oninput="updateCorrectDropdown()">
                     <input type="text" id="newQOpt2" class="neo-input" placeholder="אפשרות 2" oninput="updateCorrectDropdown()">
                     <input type="text" id="newQOpt3" class="neo-input" placeholder="אפשרות 3" oninput="updateCorrectDropdown()">
@@ -1238,17 +1387,47 @@ function renderAddQuestion() {
                     </select>
                 </div>
 
+                <!-- ══ MATCH PAIR FIELDS ══ -->
                 <div id="matchFields" style="display: none;">
                     <label class="bold">זוגות להתאמה (מינימום 5)</label>
+                    <p style="font-size:13px; opacity:0.7; margin-bottom:10px;">בחר האם הצדדים הם טקסט או תמונה עבור כל השאלה:</p>
+                    
+                    <div style="display:flex; gap: 12px; margin-bottom: 16px;">
+                        <div style="flex:1;">
+                            <label class="bold">סוג צד ימין</label>
+                            <select id="globalRightMode" class="neo-input" onchange="window.updateAllPairModes()" style="margin-bottom:0; background:var(--white);">
+                                <option value="text">טקסט</option>
+                                <option value="image">תמונה</option>
+                            </select>
+                        </div>
+                        <div style="flex:1;">
+                            <label class="bold">סוג צד שמאל</label>
+                            <select id="globalLeftMode" class="neo-input" onchange="window.updateAllPairModes()" style="margin-bottom:0; background:var(--white);">
+                                <option value="text">טקסט</option>
+                                <option value="image">תמונה</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div id="pairsContainer">
                         ${initialPairs}
                     </div>
                     <button class="neo-button bg-multiplayer" id="mainAddPairBtn" style="height: 40px; padding: 0; margin-top: 10px;" onclick="window.addPairRow()">+ הוסף זוג</button>
                 </div>
 
+                <!-- ══ HANGMAN FIELDS ══ -->
                 <div id="hangmanFields" style="display: none;">
                     <label class="bold">מילה או ביטוי להגמן (עד 20 תווים)</label>
                     <input type="text" id="newHangmanWord" class="neo-input" placeholder="לדוגמא, ONE PIECE או וואן פיס" style="text-transform: uppercase;" maxlength="20">
+                    
+                    <label class="bold">תמונת רמז (לא חובה)</label>
+                    <input type="hidden" id="hangmanImgData">
+                    <label class="img-file-label">
+                        <input type="file" accept="image/*" onchange="window.handleImageFile(this,'hangmanImgData','hangmanImgPreview')">
+                        📷 בחר תמונה מהמכשיר
+                    </label>
+                    <input type="text" id="hangmanImgData_url" class="neo-input" placeholder="או הכנס URL של תמונה" style="font-size:13px; margin-top:4px;" oninput="window.handleImageUrl('hangmanImgData_url','hangmanImgData','hangmanImgPreview')">
+                    <img id="hangmanImgPreview" class="img-preview-thumb" alt="תצוגה מקדימה">
                 </div>
             </div>
             
@@ -1297,7 +1476,7 @@ async function saveNewQuestion() {
 
         if (qType === 'trivia') {
             const qText = document.getElementById('newQText').value.trim();
-            const qMediaUrl = document.getElementById('newQMediaUrl').value.trim();
+            const qMediaUrl = getImageValue('triviaImgData');
             const opts = [
                 document.getElementById('newQOpt1').value.trim(),
                 document.getElementById('newQOpt2').value.trim(),
@@ -1354,8 +1533,9 @@ async function saveNewQuestion() {
 
             if (needsAI) {
                 btn.innerText = "בודק תוכן בענן...";
+                const hangmanImgUrlForCheck = getImageValue('hangmanImgData');
                 const agentStatus = await filterContentWithAgent({
-                    type: 'hangman', word: word
+                    type: 'hangman', word: word, mediaUrl: hangmanImgUrlForCheck
                 });
                 if (agentStatus === "REJECT") {
                     showToast("הביטוי נחסם: זוהה תוכן לא הולם", "error", 5000);
@@ -1365,12 +1545,14 @@ async function saveNewQuestion() {
             }
             btn.innerText = "מתרגם ושומר...";
 
+            const hangmanImgUrl = getImageValue('hangmanImgData');
             const docData = {
                 word: word,
                 category: category,
                 lang: state.currentLang.code,
                 addedAt: window.serverTimestamp()
             };
+            if (hangmanImgUrl) docData.imageUrl = hangmanImgUrl;
             if (needsManual) {
                 await window.addDoc(window.collection(window.db, "pendingQuestions"), { ...docData, targetCollection: "hangmanWords" });
                 showToast("✅ נשלח לאישור מנהל!", 'success', 3500);
@@ -1382,26 +1564,42 @@ async function saveNewQuestion() {
             return;
 
         } else if (qType === 'match_pair') {
-            const leftInputs = Array.from(document.querySelectorAll('.match-left')).map(i => i.value.trim());
-            const rightInputs = Array.from(document.querySelectorAll('.match-right')).map(i => i.value.trim());
+            // Collect pairs: each row has either text or image per side
+            const rows = document.querySelectorAll('.pair-row');
+            const rawPairs = [];
+            rows.forEach(row => {
+                const leftText  = row.querySelector('.match-left')?.value.trim() || '';
+                const leftImg   = row.querySelector('.match-left-img')?.value.trim() || '';
+                const rightText = row.querySelector('.match-right')?.value.trim() || '';
+                const rightImg  = row.querySelector('.match-right-img')?.value.trim() || '';
 
-            const pairs = [];
-            for (let i = 0; i < leftInputs.length; i++) {
-                if (leftInputs[i] && rightInputs[i]) {
-                    pairs.push({ left: leftInputs[i], right: rightInputs[i] });
+                const leftVal  = leftImg  || leftText;
+                const rightVal = rightImg || rightText;
+                const leftIsImg  = !!leftImg;
+                const rightIsImg = !!rightImg;
+
+                if (leftVal && rightVal) {
+                    rawPairs.push({ left: leftIsImg ? null : leftVal, leftImg: leftIsImg ? leftVal : null,
+                                    right: rightIsImg ? null : rightVal, rightImg: rightIsImg ? rightVal : null });
                 }
-            }
+            });
 
-            if (pairs.length < 5) {
+            if (rawPairs.length < 5) {
                 showToast("יש להזין לפחות 5 זוגות מלאים!", 'error');
                 btn.innerText = "שמור שאלה"; btn.disabled = false;
                 return;
             }
 
+            // Build pairs list for AI moderation including images
+            const pairsForAI = rawPairs.map(p => ({ 
+                left: p.left || null, leftImg: p.leftImg || null, 
+                right: p.right || null, rightImg: p.rightImg || null 
+            }));
+
             if (needsAI) {
                 btn.innerText = "בודק תוכן בענן...";
                 const agentStatus = await filterContentWithAgent({
-                    type: 'match_pair', pairs: pairs
+                    type: 'match_pair', pairs: pairsForAI
                 });
                 if (agentStatus === "REJECT") {
                     showToast("הזוגות נחסמו: זוהה תוכן לא הולם", "error", 5000);
@@ -1411,18 +1609,23 @@ async function saveNewQuestion() {
             }
             btn.innerText = "מתרגם ושומר...";
 
-            // Translate all pairs
-            const translatedPairs = await Promise.all(pairs.map(async p => {
-                const tLeft = await translateToAllLangs(p.left, src);
-                const tRight = await translateToAllLangs(p.right, src);
-                return { leftMap: tLeft, rightMap: tRight };
+            // Translate text sides only; image sides stay as-is
+            const translatedPairs = await Promise.all(rawPairs.map(async p => {
+                const tLeft  = p.left  ? await translateToAllLangs(p.left, src)  : null;
+                const tRight = p.right ? await translateToAllLangs(p.right, src) : null;
+                return { leftMap: tLeft, leftImg: p.leftImg, rightMap: tRight, rightImg: p.rightImg };
             }));
 
-            // Structure pairs for easy retrieval: pairsMap: { en: [{left, right}], he: [{left, right}]... }
+            // pairsMap: { en: [{left, leftImg, right, rightImg}], he: [...], ... }
             const pairsMap = { en: [], he: [], ar: [], ru: [] };
             translatedPairs.forEach(tp => {
                 ['en', 'he', 'ar', 'ru'].forEach(lang => {
-                    pairsMap[lang].push({ left: tp.leftMap[lang], right: tp.rightMap[lang] });
+                    pairsMap[lang].push({
+                        left:     tp.leftMap  ? tp.leftMap[lang]  : null,
+                        leftImg:  tp.leftImg  || null,
+                        right:    tp.rightMap ? tp.rightMap[lang] : null,
+                        rightImg: tp.rightImg || null
+                    });
                 });
             });
 
@@ -2519,6 +2722,8 @@ function renderHangman() {
                 ${buildHangmanSVG(wrongCount)}
             </div>
 
+            ${state.hangmanWordImage ? `<img class="hangman-hint-image" src="${state.hangmanWordImage}" alt="רמז" />` : ''}
+
             <div class="hangman-word">${wordDisplay}</div>
 
             ${state.hangmanWrong.length > 0 ? `
@@ -2543,6 +2748,7 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
         <div class="hangman-panel">
             <div class="hangman-panel-title">אתה ${state.hangmanDone ? (state.hangmanWon ? '✅' : '❌') : '<i class="uit uit-hourglass"></i>'}</div>
             ${buildHangmanSVG(myWrongCount, true)}
+            ${state.hangmanWordImage ? `<img class="hangman-hint-image small" src="${state.hangmanWordImage}" alt="רמז" />` : ''}
             <div class="hangman-word small">${myWordDisplay}</div>
             ${state.hangmanWrong.length > 0 ? `
             <div class="hangman-wrong-list small">
@@ -2722,6 +2928,7 @@ function initHangmanState(wordList) {
     const entry = wordList[Math.floor(Math.random() * wordList.length)];
     const word = (entry.word || '').toUpperCase();
     state.hangmanWord = word.split('');
+    state.hangmanWordImage = entry.imageUrl || null; // carry hint image
     state.hangmanGuessed = [];
     state.hangmanWrong = [];
     state.hangmanDone = false;
@@ -2778,9 +2985,33 @@ function guessLetter(letter) {
 }
 
 // --- AUDIO SYSTEM ---
-const sfxCorrect = new Audio('sound/sfx_correct.wav');
-const sfxWrong = new Audio('sound/sfx_error.wav');
-const sfxClick = new Audio('sound/sfx_click.wav');
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null; // Lazy-init to avoid NotAllowedError before user gesture
+const sfxBuffers = {};
+let sfxVolume = 1.0;
+
+function getAudioCtx() {
+    if (!audioCtx) {
+        audioCtx = new AudioContext();
+    }
+    return audioCtx;
+}
+
+async function loadSfx(name, url) {
+    try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
+        sfxBuffers[name] = audioBuffer;
+    } catch (e) {
+        console.error('Error loading sfx:', e);
+    }
+}
+
+loadSfx('correct', 'sound/sfx_correct.wav');
+loadSfx('wrong', 'sound/sfx_error.wav');
+loadSfx('click', 'sound/sfx_click.wav');
+
 const bgmFiles = [
     'sound/bgm_calm.wav',
     'sound/bgm_rhythmic_2.wav',
@@ -2793,19 +3024,10 @@ function _unlockAudio() {
     if (_audioUnlocked) return;
     _audioUnlocked = true;
 
-    // Play and immediately pause all sound effects to unlock them for mobile
-    [sfxCorrect, sfxWrong, sfxClick].forEach(a => {
-        const originalVol = a.volume;
-        a.volume = 0; // Mute during unlock
-        const p = a.play();
-        if (p !== undefined) {
-            p.then(() => {
-                a.pause();
-                a.currentTime = 0;
-                a.volume = originalVol;
-            }).catch(() => { });
-        }
-    });
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') {
+        ctx.resume();
+    }
 
     document.removeEventListener('click', _unlockAudio);
     document.removeEventListener('touchstart', _unlockAudio);
@@ -2814,10 +3036,7 @@ document.addEventListener('click', _unlockAudio);
 document.addEventListener('touchstart', _unlockAudio);
 
 window.updateSFXVol = (val) => {
-    const vol = val / 100;
-    sfxCorrect.volume = vol;
-    sfxWrong.volume = vol;
-    sfxClick.volume = vol;
+    sfxVolume = val / 100;
 };
 
 window.updateBGMVol = (val) => {
@@ -2827,15 +3046,19 @@ window.updateBGMVol = (val) => {
 };
 
 window.playSfx = (type) => {
-    if (type === 'correct') {
-        sfxCorrect.currentTime = 0;
-        sfxCorrect.play().catch(e => console.log(e));
-    } else if (type === 'wrong') {
-        sfxWrong.currentTime = 0;
-        sfxWrong.play().catch(e => console.log(e));
-    } else if (type === 'click') {
-        sfxClick.currentTime = 0;
-        sfxClick.play().catch(e => console.log(e));
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') {
+        ctx.resume();
+    }
+    const buffer = sfxBuffers[type];
+    if (buffer) {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = sfxVolume;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
     }
 };
 
@@ -2915,12 +3138,12 @@ window.addEventListener('beforeunload', () => {
 // --- ADMIN UI ---
 function renderAdminLogin() {
     return `
-        <div class="screen-wrapper">
-            <h1 class="main-title">Admin Login</h1>
+        <div class="screen-wrapper" style="align-items:center; justify-content:center;">
+            <h1 class="main-title">כניסת מנהל</h1>
             <div style="background: var(--white); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%; border: 3px solid var(--app-text); margin-bottom: 20px;">
-                <label class="bold color-indigo">Password:</label>
-                <input type="password" id="adminPasswordInput" class="neo-input" placeholder="Enter password...">
-                <button class="neo-button bg-indigo" style="margin-top: 15px;" onclick="verifyAdminLogin()">Login</button>
+                <label class="bold color-indigo">סיסמה:</label>
+                <input type="password" id="adminPasswordInput" class="neo-input" placeholder="הכנס סיסמה...">
+                <button class="neo-button bg-indigo" style="margin-top: 15px;" onclick="verifyAdminLogin()">כניסה</button>
             </div>
             <button class="neo-button bg-coral" style="max-width: 150px;" onclick="navigate('MENU')">${getString('back')}</button>
         </div>
@@ -2930,15 +3153,15 @@ function renderAdminLogin() {
 window.verifyAdminLogin = async () => {
     const pwd = document.getElementById('adminPasswordInput').value;
     if (!pwd) return;
-    
+
     if (!window.functions) {
-        showToast("Firebase Functions not initialized", "error");
+        showToast("Firebase Functions לא מאותחל", "error");
         return;
     }
-    
+
     document.getElementById('adminPasswordInput').disabled = true;
-    showToast("Verifying...", "info");
-    
+    showToast("מאמת...", "info");
+
     try {
         const verifyFn = window.httpsCallable(window.functions, 'verifyAdminPassword');
         const res = await verifyFn({ password: pwd });
@@ -2946,12 +3169,12 @@ window.verifyAdminLogin = async () => {
             state.isAdmin = true;
             navigate('ADMIN_PANEL');
         } else {
-            showToast("Incorrect password!", "error");
+            showToast("סיסמה שגויה!", "error");
             document.getElementById('adminPasswordInput').disabled = false;
         }
     } catch (e) {
         console.error(e);
-        showToast("Error verifying password", "error");
+        showToast("שגיאה באימות הסיסמה", "error");
         document.getElementById('adminPasswordInput').disabled = false;
     }
 };
@@ -2960,29 +3183,29 @@ function renderAdminPanel() {
     if (!state.isAdmin) {
         return renderAdminLogin(); // fallback
     }
-    
+
     const m = state.verificationMode || "AI_ONLY";
-    
+
     let html = `
         <div class="screen-wrapper" style="align-items: flex-start; overflow-y: auto; display: block; padding-top: 20px;">
-            <h1 class="main-title" style="text-align:center;">Admin Dashboard</h1>
+            <h1 class="main-title" style="text-align:center;">לוח בקרה - מנהל</h1>
             
             <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin: 0 auto 20px; border: 3px solid var(--app-text);">
-                <h3 class="color-indigo">Verification Settings</h3>
-                <p style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">Choose how user-submitted questions are verified.</p>
+                <h3 class="color-indigo">הגדרות אימות שאלות</h3>
+                <p style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">בחר כיצד שאלות שנשלחו על ידי משתמשים יאומתו.</p>
                 
                 <div style="display:flex; flex-direction:column; gap:10px;">
-                    <label><input type="radio" name="vMode" value="AI_ONLY" ${m === 'AI_ONLY' ? 'checked' : ''}> AI Verification Only</label>
-                    <label><input type="radio" name="vMode" value="MANUAL_ONLY" ${m === 'MANUAL_ONLY' ? 'checked' : ''}> Manual Verification Only</label>
-                    <label><input type="radio" name="vMode" value="BOTH" ${m === 'BOTH' ? 'checked' : ''}> Both (AI + Manual)</label>
-                    <label><input type="radio" name="vMode" value="NONE" ${m === 'NONE' ? 'checked' : ''}> None (Auto-Approve)</label>
+                    <label><input type="radio" name="vMode" value="AI_ONLY" ${m === 'AI_ONLY' ? 'checked' : ''}> אימות בינה מלאכותית בלבד</label>
+                    <label><input type="radio" name="vMode" value="MANUAL_ONLY" ${m === 'MANUAL_ONLY' ? 'checked' : ''}> אימות ידני בלבד</label>
+                    <label><input type="radio" name="vMode" value="BOTH" ${m === 'BOTH' ? 'checked' : ''}> שניהם (בינה מלאכותית + ידני)</label>
+                    <label><input type="radio" name="vMode" value="NONE" ${m === 'NONE' ? 'checked' : ''}> ללא אימות (אישור אוטומטי)</label>
                 </div>
-                <button class="neo-button bg-indigo" style="margin-top: 15px; max-width: 200px; padding: 10px;" onclick="saveAdminSettings()">Save Settings</button>
+                <button class="neo-button bg-indigo" style="margin-top: 15px; max-width: 200px; padding: 10px;" onclick="saveAdminSettings()">שמור הגדרות</button>
             </div>
             
             <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin: 0 auto 20px; border: 3px solid var(--app-text);">
-                <h3 class="color-indigo">Pending Review</h3>
-                <div id="pendingQuestionsContainer">Loading...</div>
+                <h3 class="color-indigo">ממתינות לאישור</h3>
+                <div id="pendingQuestionsContainer">טוען...</div>
             </div>
             
             <div style="text-align:center; padding-bottom: 40px;">
@@ -2990,10 +3213,10 @@ function renderAdminPanel() {
             </div>
         </div>
     `;
-    
+
     // Load pending immediately
     loadPendingQuestions();
-    
+
     return html;
 }
 
@@ -3001,10 +3224,10 @@ window.saveAdminSettings = async () => {
     const val = document.querySelector('input[name="vMode"]:checked').value;
     try {
         await window.setDoc(window.doc(window.db, "system", "config"), { verificationMode: val }, { merge: true });
-        showToast("Settings saved!", "success");
+        showToast("ההגדרות נשמרו!", "success");
     } catch (e) {
         console.error(e);
-        showToast("Failed to save settings", "error");
+        showToast("שגיאה בשמירת ההגדרות", "error");
     }
 };
 
@@ -3013,26 +3236,26 @@ window.loadPendingQuestions = async () => {
         const q = window.query(window.collection(window.db, "pendingQuestions"));
         const snap = await window.getDocs(q);
         let listHtml = "";
-        
+
         if (snap.empty) {
-            listHtml = "<p>No questions pending review.</p>";
+            listHtml = "<p>אין שאלות הממתינות לאישור.</p>";
         } else {
             snap.forEach(docSnap => {
                 const data = docSnap.data();
                 const id = docSnap.id;
-                let preview = "Question: ";
-                if (data.type === 'hangman') preview = "Hangman: " + data.word;
-                else if (data.type === 'match_pair') preview = "Match Pairs: " + data.pairsMap?.en?.length + " pairs";
-                else preview = "Trivia: " + (data.textMap?.en || data.textMap?.he || "?");
-                
+                let preview = "שאלה: ";
+                if (data.type === 'hangman') preview = "איש תלוי: " + data.word;
+                else if (data.type === 'match_pair') preview = "התאמת זוגות: " + data.pairsMap?.en?.length + " זוגות";
+                else preview = "טריוויה: " + (data.textMap?.he || data.textMap?.en || "?");
+
                 listHtml += `
                     <div style="border: 2px solid var(--app-text); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #f9f9f9;">
-                        <strong>Type:</strong> ${data.type} <br>
-                        <strong>Preview:</strong> ${preview} <br>
-                        <strong>Target:</strong> ${data.targetCollection} <br>
+                        <strong>סוג:</strong> ${data.type} <br>
+                        <strong>תצוגה מקדימה:</strong> ${preview} <br>
+                        <strong>יעד:</strong> ${data.targetCollection} <br>
                         <div style="display:flex; gap:10px; margin-top:10px;">
-                            <button class="neo-button bg-indigo" style="padding: 5px 10px; font-size:14px;" onclick="approvePending('${id}', '${data.targetCollection}')">Approve</button>
-                            <button class="neo-button bg-coral" style="padding: 5px 10px; font-size:14px;" onclick="rejectPending('${id}')">Reject</button>
+                            <button class="neo-button bg-indigo" style="padding: 5px 10px; font-size:14px;" onclick="approvePending('${id}', '${data.targetCollection}')">אשר</button>
+                            <button class="neo-button bg-coral" style="padding: 5px 10px; font-size:14px;" onclick="rejectPending('${id}')">דחה</button>
                         </div>
                     </div>
                 `;
@@ -3041,40 +3264,40 @@ window.loadPendingQuestions = async () => {
         document.getElementById('pendingQuestionsContainer').innerHTML = listHtml;
     } catch (e) {
         console.error(e);
-        document.getElementById('pendingQuestionsContainer').innerHTML = "<p>Error loading pending questions.</p>";
+        document.getElementById('pendingQuestionsContainer').innerHTML = "<p>שגיאה בטעינת השאלות הממתינות.</p>";
     }
 };
 
 window.approvePending = async (id, targetCollection) => {
-    if (!confirm("Approve this question?")) return;
+    if (!confirm("לאשר את השאלה?")) return;
     try {
         const docRef = window.doc(window.db, "pendingQuestions", id);
         const snap = await window.getDoc(docRef);
         if (!snap.exists()) return;
-        
+
         const data = snap.data();
         delete data.targetCollection; // clean up before inserting
-        
+
         await window.addDoc(window.collection(window.db, targetCollection), data);
         await window.deleteDoc(docRef); // delete from pending
-        
-        showToast("Approved and moved to live!", "success");
+
+        showToast("השאלה אושרה ועברה לפעיל!", "success");
         loadPendingQuestions(); // refresh
-    } catch(e) {
+    } catch (e) {
         console.error(e);
-        showToast("Error approving", "error");
+        showToast("שגיאה באישור השאלה", "error");
     }
 };
 
 window.rejectPending = async (id) => {
-    if (!confirm("Reject and delete this question permanently?")) return;
+    if (!confirm("לדחות ולמחוק את השאלה לצמיתות?")) return;
     try {
         const docRef = window.doc(window.db, "pendingQuestions", id);
         await window.deleteDoc(docRef);
-        showToast("Question rejected", "success");
+        showToast("השאלה נדחתה ונמחקה", "success");
         loadPendingQuestions(); // refresh
-    } catch(e) {
+    } catch (e) {
         console.error(e);
-        showToast("Error rejecting", "error");
+        showToast("שגיאה בדחיית השאלה", "error");
     }
 };
