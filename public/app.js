@@ -199,7 +199,7 @@ window.handleImageFile = async (input, dataFieldId, previewId, preset) => {
         // clear URL field if exists
         const urlField = document.getElementById(dataFieldId + '_url');
         if (urlField) urlField.value = '';
-    } catch(e) {
+    } catch (e) {
         console.error(e);
         showToast('שגיאה בעיבוד התמונה', 'error');
     }
@@ -226,7 +226,7 @@ window.handleImageUrl = (urlFieldId, dataFieldId, previewId, preset) => {
         }
 
         if (!url.startsWith('http') && !url.startsWith('data:')) {
-            return; 
+            return;
         }
 
         if (preview) { preview.style.opacity = '0.5'; }
@@ -235,11 +235,11 @@ window.handleImageUrl = (urlFieldId, dataFieldId, previewId, preset) => {
             // First try loading via a CORS proxy to bypass restrictive servers (like wikis)
             let proxyUrl = url.startsWith('data:') ? url : `https://corsproxy.io/?${encodeURIComponent(url)}`;
             const dataUrl = await fetchImageUrlAsBase64(proxyUrl, preset);
-            
+
             if (dataField) dataField.value = dataUrl;
-            if (preview) { 
-                preview.src = dataUrl; 
-                preview.style.display = 'block'; 
+            if (preview) {
+                preview.src = dataUrl;
+                preview.style.display = 'block';
                 preview.style.opacity = '1';
             }
             showToast('התמונה נטענה והומרה בהצלחה!', 'success');
@@ -260,17 +260,17 @@ async function fetchImageUrlAsBase64(url, preset) {
             const maxDim = preset === 'small' ? 600 : 800;
             const quality = preset === 'small' ? 0.55 : 0.72;
             let { width, height } = img;
-            
+
             if (width > maxDim || height > maxDim) {
                 if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
                 else { width = Math.round(width * maxDim / height); height = maxDim; }
             }
-            
+
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-            
+
             try {
                 resolve(canvas.toDataURL('image/jpeg', quality));
             } catch (e) {
@@ -298,23 +298,23 @@ function getImageValue(dataFieldId) {
 window.updateAllPairModes = () => {
     const rMode = document.getElementById('globalRightMode')?.value || 'text';
     const lMode = document.getElementById('globalLeftMode')?.value || 'text';
-    
+
     const container = document.getElementById('pairsContainer');
     if (!container) return;
     const rows = container.querySelectorAll('.pair-row');
     rows.forEach(row => {
         const leftTextArea = row.querySelector('[id^="pair-text-area-left-"]');
-        const leftImgArea  = row.querySelector('[id^="pair-img-area-left-"]');
+        const leftImgArea = row.querySelector('[id^="pair-img-area-left-"]');
         if (leftTextArea && leftImgArea) {
             leftTextArea.style.display = rMode === 'text' ? 'block' : 'none';
-            leftImgArea.style.display  = rMode === 'text' ? 'none' : 'block';
+            leftImgArea.style.display = rMode === 'text' ? 'none' : 'block';
         }
-        
+
         const rightTextArea = row.querySelector('[id^="pair-text-area-right-"]');
-        const rightImgArea  = row.querySelector('[id^="pair-img-area-right-"]');
+        const rightImgArea = row.querySelector('[id^="pair-img-area-right-"]');
         if (rightTextArea && rightImgArea) {
             rightTextArea.style.display = lMode === 'text' ? 'block' : 'none';
-            rightImgArea.style.display  = lMode === 'text' ? 'none' : 'block';
+            rightImgArea.style.display = lMode === 'text' ? 'none' : 'block';
         }
     });
 };
@@ -836,7 +836,7 @@ function renderClimb() {
         <div class="screen-wrapper ${screenAnimClass}" id="climb-screen">
             <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             <!-- Mountain SVG -->
-            ${buildMountainSVG(state.rank, '', oppRank, state.isMultiplayer, state.isHost)}
+            ${buildMountainSVG(state.rank, state.rank, '', oppRank, oppRank, '', state.isMultiplayer, state.isHost)}
 
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
@@ -1628,19 +1628,21 @@ async function saveNewQuestion() {
             const rows = document.querySelectorAll('.pair-row');
             const rawPairs = [];
             rows.forEach(row => {
-                const leftText  = row.querySelector('.match-left')?.value.trim() || '';
-                const leftImg   = row.querySelector('.match-left-img')?.value.trim() || '';
+                const leftText = row.querySelector('.match-left')?.value.trim() || '';
+                const leftImg = row.querySelector('.match-left-img')?.value.trim() || '';
                 const rightText = row.querySelector('.match-right')?.value.trim() || '';
-                const rightImg  = row.querySelector('.match-right-img')?.value.trim() || '';
+                const rightImg = row.querySelector('.match-right-img')?.value.trim() || '';
 
-                const leftVal  = leftImg  || leftText;
+                const leftVal = leftImg || leftText;
                 const rightVal = rightImg || rightText;
-                const leftIsImg  = !!leftImg;
+                const leftIsImg = !!leftImg;
                 const rightIsImg = !!rightImg;
 
                 if (leftVal && rightVal) {
-                    rawPairs.push({ left: leftIsImg ? null : leftVal, leftImg: leftIsImg ? leftVal : null,
-                                    right: rightIsImg ? null : rightVal, rightImg: rightIsImg ? rightVal : null });
+                    rawPairs.push({
+                        left: leftIsImg ? null : leftVal, leftImg: leftIsImg ? leftVal : null,
+                        right: rightIsImg ? null : rightVal, rightImg: rightIsImg ? rightVal : null
+                    });
                 }
             });
 
@@ -1651,9 +1653,9 @@ async function saveNewQuestion() {
             }
 
             // Build pairs list for AI moderation including images
-            const pairsForAI = rawPairs.map(p => ({ 
-                left: p.left || null, leftImg: p.leftImg || null, 
-                right: p.right || null, rightImg: p.rightImg || null 
+            const pairsForAI = rawPairs.map(p => ({
+                left: p.left || null, leftImg: p.leftImg || null,
+                right: p.right || null, rightImg: p.rightImg || null
             }));
 
             if (needsAI) {
@@ -1671,7 +1673,7 @@ async function saveNewQuestion() {
 
             // Translate text sides only; image sides stay as-is
             const translatedPairs = await Promise.all(rawPairs.map(async p => {
-                const tLeft  = p.left  ? await translateToAllLangs(p.left, src)  : null;
+                const tLeft = p.left ? await translateToAllLangs(p.left, src) : null;
                 const tRight = p.right ? await translateToAllLangs(p.right, src) : null;
                 return { leftMap: tLeft, leftImg: p.leftImg, rightMap: tRight, rightImg: p.rightImg };
             }));
@@ -1681,9 +1683,9 @@ async function saveNewQuestion() {
             translatedPairs.forEach(tp => {
                 ['en', 'he', 'ar', 'ru'].forEach(lang => {
                     pairsMap[lang].push({
-                        left:     tp.leftMap  ? tp.leftMap[lang]  : null,
-                        leftImg:  tp.leftImg  || null,
-                        right:    tp.rightMap ? tp.rightMap[lang] : null,
+                        left: tp.leftMap ? tp.leftMap[lang] : null,
+                        leftImg: tp.leftImg || null,
+                        right: tp.rightMap ? tp.rightMap[lang] : null,
                         rightImg: tp.rightImg || null
                     });
                 });
@@ -2273,10 +2275,12 @@ window.joinMultiplayerRoom = async () => {
 
         state.roomId = code;
         state.isHost = false;
+        state.isMultiplayer = true;
         state.myPlayerName = finalName;
         state.currentPlayList = data.playlist;
         state.maxPlayers = data.maxPlayers;
         state.selectedMode = data.gameMode || 'CLASSIC';
+        state.multiplayerPlayers = data.players || {};
 
         const newPlayers = { ...data.players, [finalName]: { score: 0, finished: false, isHost: false, isReady: false } };
 
@@ -2389,6 +2393,9 @@ function listenToRoom(code) {
                         state.pendingQuestionIndex = data.climbFinished ? state.currentIndex : data.currentQuestionIndex;
                         state.pendingClimbFinished = data.climbFinished;
                         navigate('CLIMB_RESULT');
+                    } else if (!wasWaiting) {
+                        // Joiner just entered - render the climb screen
+                        render();
                     }
                 } else {
                     state.currentIndex = data.currentQuestionIndex;
@@ -2398,6 +2405,9 @@ function listenToRoom(code) {
                     }
                     render();
                 }
+            } else if (state.selectedMode === 'CLIMB' && state.currentScreen === 'PLAYING_CLIMB' && !state.isWaitingForOthers) {
+                // Joiner arrived at PLAYING_CLIMB before any question index change — render the screen
+                render();
             }
 
             if (state.isHost) {
@@ -3045,82 +3055,28 @@ function guessLetter(letter) {
 }
 
 // --- AUDIO SYSTEM ---
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null; // Lazy-init to avoid NotAllowedError before user gesture
-const sfxBuffers = {};
+// SFX and BGM both use simple HTML5 Audio elements for maximum compatibility
+const sfxElements = {};
 let sfxVolume = 1.0;
 
-function getAudioCtx() {
-    if (!audioCtx) {
-        audioCtx = new AudioContext();
-    }
-    return audioCtx;
-}
-
-async function loadSfx(name, url) {
-    try {
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
-        sfxBuffers[name] = audioBuffer;
-    } catch (e) {
-        console.error('Error loading sfx:', e);
-    }
+function loadSfx(name, url) {
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+    sfxElements[name] = audio;
 }
 
 loadSfx('correct', 'sound/sfx_correct.wav');
 loadSfx('wrong', 'sound/sfx_error.wav');
 loadSfx('click', 'sound/sfx_click.wav');
 
+// BGM files
 const bgmFiles = [
     'sound/bgm_calm.wav',
     'sound/bgm_rhythmic_2.wav',
     'sound/bgm_rhythmic.wav'
 ];
+
 let currentBgm = null;
-
-let _audioUnlocked = false;
-function _unlockAudio() {
-    if (_audioUnlocked) return;
-    _audioUnlocked = true;
-
-    const ctx = getAudioCtx();
-    if (ctx.state === 'suspended') {
-        ctx.resume();
-    }
-
-    document.removeEventListener('click', _unlockAudio);
-    document.removeEventListener('touchstart', _unlockAudio);
-}
-document.addEventListener('click', _unlockAudio);
-document.addEventListener('touchstart', _unlockAudio);
-
-window.updateSFXVol = (val) => {
-    sfxVolume = val / 100;
-};
-
-window.updateBGMVol = (val) => {
-    if (currentBgm) {
-        currentBgm.volume = val / 100;
-    }
-};
-
-window.playSfx = (type) => {
-    const ctx = getAudioCtx();
-    if (ctx.state === 'suspended') {
-        ctx.resume();
-    }
-    const buffer = sfxBuffers[type];
-    if (buffer) {
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        const gainNode = ctx.createGain();
-        gainNode.gain.value = sfxVolume;
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        source.start(0);
-    }
-};
 
 function playRandomBgm() {
     if (currentBgm) {
@@ -3136,7 +3092,7 @@ function playRandomBgm() {
     const p = currentBgm.play();
     if (p !== undefined) {
         p.catch(e => {
-            // Autoplay policy fallback
+            // Autoplay policy fallback: wait for user gesture
             const playBgmOnInteract = () => {
                 if (currentBgm && currentBgm.paused) currentBgm.play().catch(err => console.log(err));
                 document.removeEventListener('click', playBgmOnInteract);
@@ -3148,7 +3104,30 @@ function playRandomBgm() {
     }
 }
 
-// Global click for sound
+window.updateSFXVol = (val) => {
+    sfxVolume = val / 100;
+};
+
+window.updateBGMVol = (val) => {
+    if (currentBgm) {
+        currentBgm.volume = val / 100;
+    }
+};
+
+window.playSfx = (type) => {
+    const baseAudio = sfxElements[type];
+    if (baseAudio) {
+        // Clone the audio node so overlapping sounds don't cut each other off
+        const clone = baseAudio.cloneNode();
+        clone.volume = sfxVolume;
+        const p = clone.play();
+        if (p !== undefined) {
+            p.catch(e => console.warn('SFX autoplay prevented:', e));
+        }
+    }
+};
+
+// Global click sound
 document.addEventListener('click', (e) => {
     if (e.target.closest('button') || e.target.closest('.match-item') || e.target.closest('#audio-icon')) {
         playSfx('click');

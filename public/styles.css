@@ -41,6 +41,7 @@ body {
     min-height: 100vh;
     user-select: none;
     -webkit-user-select: none;
+    overflow-x: hidden;
 }
 
 input,
@@ -69,6 +70,7 @@ input {
     padding: 32px 24px;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
 }
 
 /* Typography & Alignment */
@@ -175,9 +177,9 @@ h2 {
 }
 
 .top-back-btn {
-    position: absolute;
-    top: -20px;
-    left: -450px;
+    position: fixed;
+    top: 12px;
+    left: 12px;
     background: var(--white);
     border: 2px solid var(--app-text);
     border-radius: 50%;
