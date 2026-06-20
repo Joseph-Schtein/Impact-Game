@@ -207,20 +207,80 @@ window.handleImageFile = async (input, dataFieldId, previewId, preset) => {
 
 /**
  * Called when a URL is typed in image URL input.
- * Stores it in hidden data field, updates preview.
+ * Downloads the image via proxy, converts to Base64 to bypass hotlinking, and stores it.
  */
-window.handleImageUrl = (urlFieldId, dataFieldId, previewId) => {
-    const urlField = document.getElementById(urlFieldId);
-    if (!urlField) return;
-    const url = urlField.value.trim();
-    const dataField = document.getElementById(dataFieldId);
-    if (dataField) dataField.value = url;
-    const preview = document.getElementById(previewId);
-    if (preview) {
-        if (url) { preview.src = url; preview.style.display = 'block'; }
-        else { preview.src = ''; preview.style.display = 'none'; }
-    }
+const _urlDebounceTimers = {};
+window.handleImageUrl = (urlFieldId, dataFieldId, previewId, preset) => {
+    clearTimeout(_urlDebounceTimers[urlFieldId]);
+    _urlDebounceTimers[urlFieldId] = setTimeout(async () => {
+        const urlField = document.getElementById(urlFieldId);
+        if (!urlField) return;
+        const url = urlField.value.trim();
+        const dataField = document.getElementById(dataFieldId);
+        const preview = document.getElementById(previewId);
+
+        if (!url) {
+            if (dataField) dataField.value = '';
+            if (preview) { preview.src = ''; preview.style.display = 'none'; }
+            return;
+        }
+
+        if (!url.startsWith('http') && !url.startsWith('data:')) {
+            return; 
+        }
+
+        if (preview) { preview.style.opacity = '0.5'; }
+
+        try {
+            // First try loading via a CORS proxy to bypass restrictive servers (like wikis)
+            let proxyUrl = url.startsWith('data:') ? url : `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            const dataUrl = await fetchImageUrlAsBase64(proxyUrl, preset);
+            
+            if (dataField) dataField.value = dataUrl;
+            if (preview) { 
+                preview.src = dataUrl; 
+                preview.style.display = 'block'; 
+                preview.style.opacity = '1';
+            }
+            showToast('התמונה נטענה והומרה בהצלחה!', 'success');
+        } catch (e) {
+            console.error("URL Image fetch error:", e);
+            showToast('שגיאה: הקישור חסום או לא תקין. נסה להוריד את התמונה ולהעלות אותה.', 'error', 5000);
+            if (dataField) dataField.value = '';
+            if (preview) { preview.src = ''; preview.style.display = 'none'; preview.style.opacity = '1'; }
+        }
+    }, 800);
 };
+
+async function fetchImageUrlAsBase64(url, preset) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => {
+            const maxDim = preset === 'small' ? 600 : 800;
+            const quality = preset === 'small' ? 0.55 : 0.72;
+            let { width, height } = img;
+            
+            if (width > maxDim || height > maxDim) {
+                if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+                else { width = Math.round(width * maxDim / height); height = maxDim; }
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            
+            try {
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            } catch (e) {
+                reject(e);
+            }
+        };
+        img.onerror = () => reject(new Error("Image load failed or blocked by CORS"));
+        img.src = url;
+    });
+}
 
 /**
  * Reads the final image value (Data URL or URL) from a data field.
