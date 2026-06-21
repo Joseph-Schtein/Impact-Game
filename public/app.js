@@ -48,12 +48,12 @@ const state = {
     // Game Session Data
     currentIndex: 0,
     score: 0,
-    energy: 100,
+    energy: 200,
     rank: 0,           // Climb: current level 0-10
     climbLastResult: null, // 'up' | 'down' | null
     selectedOption: null,
     isAnimating: false,
-    currentPhase: 'BETTING', // For Bet & Burn
+    currentPhase: 'ANTE', // For Bet & Burn
     userBetInput: '',
 
     // Multiplayer Data
@@ -70,6 +70,11 @@ const state = {
     roomPhase: 'ANTE', // 'ANTE', 'BETTING', 'ANSWERING'
     playerFolded: false,
     isLockedOut: false,
+    roomCurrentBet: 0,
+    playerBets: {},
+    bettingOrder: [],        // player names in turn order
+    currentBettorIndex: 0,  // whose turn it is
+    bettingActed: [],        // who has acted since last raise
 
     // Timer
     questionTimer: 15,
@@ -363,7 +368,7 @@ function renderWaitingScreen() {
     const playersArr = Object.entries(state.multiplayerPlayers).sort((a, b) => b[1].score - a[1].score);
     const leaderboardHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
-        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-bolt"></i> ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : `${pData.score} נק'`;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-coins"></i> ${pData.score} נק'` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : `${pData.score} נק'`;
         return `
         <div style="display:flex; justify-content:space-between; align-items:center; background:${isMe ? 'var(--vibrant-indigo)' : 'var(--white)'}; color:${isMe ? 'var(--white)' : 'var(--app-text)'}; padding:8px 12px; margin:4px 0; border-radius:8px; border: 2px solid var(--app-text); font-weight:bold; font-size: 16px; width: 100%; max-width: 300px;">
             <div>#${idx + 1} &nbsp; ${pName}</div>
@@ -383,14 +388,14 @@ function renderWaitingScreen() {
         </p>`;
     } else if (state.selectedMode === 'BET_BURN') {
         rulesHtml = `<p style="font-size: 14px; opacity: 0.8; margin-top: 24px; max-width: 300px; text-align: center; line-height: 1.4;">
-            <b>חוקי הימור:</b> תשובה נכונה מוסיפה את ההימור שלך, שגויה שורפת אותו.
+            <b>חוקי הימור (פוקר):</b> כולם מתחילים עם 500 נק'. שלם 50 נק' כניסה (Ante), לאחר מכן תוכל להרים (Raise) או להתקפל (Fold). הראשון להגיע ל-1000 נק' מנצח! מי שענה נכון מחלק את הקופה שווה בשווה.
         </p>`;
     }
 
     return `
         <div class="screen-wrapper" style="align-items:center; justify-content:center;">
             <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
-            <h2 class="main-title" style="font-size: 26px; margin-bottom: 8px; text-align: center;">ממתין לשאר השחקנים...</h2>
+            <h2 class="main-title" style="font-size: 26px; margin-top: 0; margin-bottom: 8px; text-align: center;">ממתין לשאר השחקנים...</h2>
             <div class="loader" style="margin-top:10px; margin-bottom: 24px;"></div>
             
             <p class="bold color-indigo" style="margin-bottom: 10px; font-size: 18px; text-align: center;">מצב נוכחי:</p>
@@ -550,14 +555,14 @@ function renderClassic() {
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <div class="question-layout-container ${q.mediaUrl ? 'has-image' : ''}">
+                <h2 class="question-text" style="font-size: 24px; text-align: center; margin-bottom: 20px;">${qText}</h2>
                 ${q.mediaUrl ? `
                 <div class="question-layout-image">
                     <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
                 </div>` : ''}
                 <div class="question-layout-content">
-                    <h2 class="question-text" style="font-size: 24px; text-align: center; margin-bottom: 20px;">${qText}</h2>
                     ${generateOptionsHTML(opts)}
-                    <div style="margin-top:30px; width:100%;">
+                    <div class="check-btn-wrapper">
                         <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                                 onclick="checkAnswer()">${getString('check_btn')}</button>
                     </div>
@@ -566,99 +571,251 @@ function renderClassic() {
         </div>`;
 }
 
+const BET_ANTE = 50;
+const BET_WIN_TARGET = 1000;
+const BET_START_SCORE = 500;
+
 function renderBetBurn() {
     if (state.isWaitingForOthers) {
         return renderWaitingScreen();
     }
 
     if (state.playerFolded && state.roomPhase !== 'ANTE') {
+        // Any player who folded during BETTING can re-enter if the other player places a bet
+        const foldedList = state.roomFoldedPlayers || [];
+        const iAmFolded = foldedList.includes(state.myPlayerName);
+        const currentBet = state.roomCurrentBet || 0;
+        const canReenter = iAmFolded
+            && state.roomPhase === 'BETTING'
+            && currentBet > 0
+            && state.energy >= currentBet
+            && !state.isLockedOut;
+
         return `
             <div class="screen-wrapper">
                 <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
-                <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                    <h2 class="main-title" style="text-align:center;">התקפלת (Fold)</h2>
-                    <p class="bold color-indigo" style="text-align:center;">ממתין לסיום הסיבוב...</p>
-                    <div class="loader" style="margin-top:10px;"></div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:16px;">
+                    <h2 class="main-title" style="text-align:center; margin-top:0;">התקפלת (Fold)</h2>
+                    <div style="background:rgba(33,2,110,0.08); border-radius:16px; padding:16px 30px; font-size:20px; font-weight:bold; border:2px solid var(--vibrant-indigo); text-align:center;">
+                        <i class="uil uil-coins" style="color:var(--vibrant-teal);"></i> הניקוד שלך: ${state.energy} נק'
+                    </div>
+                    ${canReenter ? `
+                    <div style="background:linear-gradient(135deg,rgba(0,180,140,0.12),rgba(33,2,110,0.12)); border-radius:20px; padding:20px; width:100%; max-width:320px; border:2px solid var(--vibrant-teal); text-align:center;">
+                        <div style="font-size:32px; margin-bottom:8px;">🔄</div>
+                        <h3 style="margin:0 0 8px 0; font-size:20px;">הצטרף מחדש לסיבוב!</h3>
+                        <p style="opacity:0.8; font-size:14px; margin-bottom:16px;">שחקן אחר הציב הימור. תוכל להשתוות ולהיכנס לסיבוב.</p>
+                        <div style="background:rgba(0,0,0,0.07); border-radius:10px; padding:10px; margin-bottom:16px; font-size:18px; font-weight:bold;">
+                            💰 עלות כניסה: <span style="color:var(--vibrant-coral);">${currentBet} נק'</span>
+                        </div>
+                        <button class="neo-button bg-teal" onclick="submitBettingAction('reenter', ${currentBet})">
+                            ✅ הצטרף – שלם ${currentBet} נק'
+                        </button>
+                    </div>` : `
+                    <p class="bold color-indigo" style="text-align:center; font-size:18px;">ממתין לסיום הסיבוב...</p>
+                    <div class="loader"></div>`}
                 </div>
             </div>`;
     }
+
 
     const q = state.currentPlayList[state.currentIndex];
     if (!q) return navigate('MENU');
     const qText = q.textMap[state.currentLang.code] || q.textMap["en"];
     const opts = q.optionsMap[state.currentLang.code] || q.optionsMap["en"];
 
+    const playersArr = Object.entries(state.multiplayerPlayers || {});
+    const playerStatusBar = `
+        <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:10px;">
+            ${playersArr.map(([pName, pData]) => {
+        const isMe = pName === state.myPlayerName;
+        const folded = (state.roomFoldedPlayers || []).includes(pName);
+        const committed = (state.playerBets || {})[pName] || 0;
+        return `<div style="padding:4px 12px; border-radius:20px; font-size:13px; font-weight:bold;
+                    background:${folded ? '#888' : isMe ? 'var(--vibrant-indigo)' : 'var(--vibrant-teal)'}; color:white;">
+                    ${folded ? '❌' : '✅'} ${pName}: ${pData.score ?? 0} נק'${committed > 0 ? ` (+${committed})` : ''}
+                </div>`;
+    }).join('')}
+        </div>`;
+
     let content = '';
-    const potDisplay = `
-        <div style="position: absolute; top: 10px; left: 10px; background: rgba(33,2,110,0.1); padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; border: 2px solid var(--vibrant-teal); color: var(--app-text);">
-            <i class="uil uil-money-stack" style="color:var(--vibrant-teal);"></i> קופה: ${state.roomPot}
-        </div>
-        <div style="position: absolute; top: 10px; right: 10px; font-weight: bold; font-size: 16px; color: var(--app-text);">
-            <i class="uil uil-bolt" style="color:var(--vibrant-coral);"></i> ${state.energy}
-        </div>
-    `;
+    const headerBar = `
+        <div style="width:100%; display:flex; justify-content:space-between; align-items:center;
+                    padding:8px 16px; background:rgba(33,2,110,0.08); border-radius:14px;
+                    margin-bottom:10px; border:2px solid var(--vibrant-teal); box-sizing:border-box;">
+            <div style="font-weight:bold; font-size:15px; color:var(--app-text);">
+                <i class="uil uil-money-stack" style="color:var(--vibrant-teal);"></i> קופה: <b style="color:var(--vibrant-teal);">${state.roomPot}</b>
+            </div>
+            <div style="font-weight:bold; font-size:15px; color:var(--app-text);">
+                <i class="uil uil-coins" style="color:var(--vibrant-coral);"></i> הניקוד שלך: <b style="color:var(--vibrant-coral);">${state.energy}</b>
+            </div>
+        </div>`;
 
     if (state.roomPhase === 'ANTE') {
-        const hasEnough = state.energy >= 50;
+        const hasEnough = state.energy >= BET_ANTE;
         content = `
-            ${potDisplay}
-            <h2 class="main-title" style="text-align:center; margin-bottom:10px; font-size: 28px;">שלב הפתיחה (Ante)</h2>
-            <p style="text-align:center; font-size: 16px; opacity:0.8; margin-bottom: 30px;">כדי להשתתף בסיבוב הבא עליך לשלם 50 אנרגיה.</p>
-            <div style="display:flex; flex-direction:column; width:100%; gap:15px; max-width:300px;">
-                <button class="neo-button ${hasEnough ? 'bg-coral' : ''}" ${!hasEnough ? 'disabled' : ''} onclick="submitAnte(true)">אשר השתתפות (-50)</button>
-                <button class="neo-button" style="background:#555; color:white;" onclick="submitAnte(false)">התקפל (Fold)</button>
-            </div>
-        `;
-    } else if (state.roomPhase === 'BETTING') {
-        const isValid = state.userBetInput !== '' && parseInt(state.userBetInput) >= 0 && parseInt(state.userBetInput) <= state.energy;
-        content = `
-            ${potDisplay}
-            <div style="margin-top: 40px; text-align:center;">
-                <h2 style="font-size: 20px; margin-bottom:20px;">${qText}</h2>
-                ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" style="margin-bottom:20px;" />` : ''}
-                
-                <div style="background:rgba(0,0,0,0.03); border-radius:16px; padding:20px; width:100%; max-width:300px; margin: 0 auto;">
-                    <p class="bold" style="margin-bottom:10px;">הוסף הימור על התשובה:</p>
-                    <input type="number" class="neo-input bet-input" value="${state.userBetInput}" oninput="updateBet(this.value)" placeholder="הכנס סכום" style="text-align:center; font-size:24px;">
-                    <div class="spacer-sm"></div>
-                    <button id="lockBetBtn" class="neo-button ${isValid ? 'bg-indigo' : ''}" ${!isValid ? 'disabled' : ''} 
-                            onclick="lockInBetMultiplayer()">נעל הימור</button>
+            ${headerBar}
+            ${playerStatusBar}
+            <div style="background:linear-gradient(135deg,rgba(33,2,110,0.07),rgba(0,180,140,0.07)); border-radius:20px; padding:24px 20px; width:100%; max-width:340px; margin:0 auto; border:2px solid var(--app-text); text-align:center;">
+                <div style="font-size:48px; margin-bottom:8px;">🎲</div>
+                <h2 style="font-size:26px; margin:0 0 8px 0;">שלב הפתיחה (Ante)</h2>
+                <p style="opacity:0.8; font-size:15px; margin-bottom:20px;">שלם ${BET_ANTE} נק' כדי להיכנס לסיבוב הבא, או התקפל וחסוך אותם.</p>
+                <div style="background:rgba(33,2,110,0.1); border-radius:12px; padding:12px; margin-bottom:20px; font-size:18px; font-weight:bold;">
+                    💰 עלות כניסה: <span style="color:var(--vibrant-coral);">${BET_ANTE} נק'</span>
                 </div>
-            </div>
-        `;
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <button class="neo-button ${hasEnough ? 'bg-coral' : ''}" ${!hasEnough ? 'disabled' : ''} onclick="submitAnte(true)">
+                        ✅ שלם ${BET_ANTE} נק' והמשך
+                    </button>
+                    <button class="neo-button" style="background:#555; color:white;" onclick="submitAnte(false)">
+                        ❌ התקפל (Fold)
+                    </button>
+                </div>
+            </div>`;
+
+    } else if (state.roomPhase === 'BETTING') {
+        const foldedList = state.roomFoldedPlayers || [];
+        const activePlayers = playersArr.filter(([n]) => !foldedList.includes(n));
+        const minBalance = activePlayers.length > 0
+            ? Math.min(...activePlayers.map(([, p]) => p.score ?? 0))
+            : state.energy;
+        const currentBettor = state.bettingOrder[state.currentBettorIndex] || '';
+        const isMyTurn = currentBettor === state.myPlayerName;
+        const myCommitted = (state.playerBets || {})[state.myPlayerName] || 0;
+        const currentBet = state.roomCurrentBet || 0;
+        const toCall = Math.max(0, currentBet - myCommitted);
+        const maxAdd = Math.max(0, minBalance - currentBet); // max raise above current bet
+        const betInput = parseInt(state.userBetInput);
+        const isOpeningBet = currentBet === 0; // no one has bet yet
+
+        // Player status row — show everyone's commitment
+        const fullStatusBar = `
+            <div style="display:flex; flex-wrap:wrap; gap:5px; justify-content:center; margin-bottom:10px;">
+                ${playersArr.map(([pName, pData]) => {
+            const isTurn = pName === currentBettor;
+            const fld = foldedList.includes(pName);
+            const committed = (state.playerBets || {})[pName] || 0;
+            const acted = (state.bettingActed || []).includes(pName);
+            return `<div style="padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold; border:2px solid ${isTurn ? 'var(--vibrant-coral)' : 'transparent'};
+                        background:${fld ? '#888' : isTurn ? 'var(--vibrant-coral)' : acted ? 'var(--vibrant-teal)' : 'var(--vibrant-indigo)'}; color:white;">
+                        ${fld ? '\u274c' : isTurn ? '\u23f3' : '\u2705'} ${pName}<br/>
+                        <span style="font-size:11px; opacity:0.85;">${pData.score ?? 0} נק' | הימור: ${committed}</span>
+                    </div>`;
+        }).join('')}
+            </div>`;
+
+        if (!isMyTurn) {
+            // Waiting for another player to act
+            content = `
+                ${headerBar}
+                ${fullStatusBar}
+                <div style="background:rgba(33,2,110,0.07); border-radius:20px; padding:24px; width:100%; max-width:340px; margin:0 auto; border:2px solid var(--vibrant-indigo); text-align:center;">
+                    <h2 style="font-size:20px; margin:0 0 8px 0;">${qText}</h2>
+                    ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="" style="margin-bottom:12px;" />` : ''}
+                    <div style="font-size:36px; margin:12px 0;">\u23f3</div>
+                    <p style="font-weight:bold; font-size:18px; margin:0 0 6px 0;">ממתין ל-<span style="color:var(--vibrant-coral);">${currentBettor}</span>...</p>
+                    <p style="opacity:0.7; font-size:14px;">הימור נוכחי: <b>${currentBet} נק'</b></p>
+                </div>`;
+        } else {
+            // It's my turn to act
+            const isValidBetInput = !isNaN(betInput) && betInput > 0 && betInput <= maxAdd;
+            const canCall = toCall <= state.energy && toCall > 0;
+
+            content = `
+                ${headerBar}
+                ${fullStatusBar}
+                <div style="background:rgba(0,0,0,0.03); border-radius:20px; padding:18px; width:100%; max-width:340px; margin:0 auto; border:3px solid var(--vibrant-coral);">
+                    <div style="background:var(--vibrant-coral); color:white; border-radius:10px; padding:6px 12px; font-size:13px; font-weight:bold; text-align:center; margin-bottom:12px;">\u23f0 התור שלך לפעול!</div>
+                    <h2 style="font-size:19px; margin:0 0 6px 0; text-align:center;">${qText}</h2>
+                    ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="" style="margin-bottom:10px;" />` : ''}
+                    <div style="font-size:13px; background:rgba(33,2,110,0.07); border-radius:8px; padding:8px 12px; margin-bottom:12px; display:flex; justify-content:space-between;">
+                        <span>הימור כולל: <b>${currentBet}</b></span>
+                        <span>שלמת: <b>${myCommitted}</b></span>
+                        <span>היתרה: <b>${state.energy}</b></span>
+                    </div>
+
+                    ${isOpeningBet ? `
+                    <!-- No bet yet: Check or Bet -->
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="neo-button bg-teal" onclick="submitBettingAction('check', 0)">\u2714\ufe0f צ'ק (המשך בלי הימור)</button>
+                        <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
+                            <p style="font-size:13px; opacity:0.7; margin:0 0 6px 0;">פתח הימור (מקסימום ${maxAdd} נק'):</p>
+                            <input type="number" class="neo-input bet-input" min="1" max="${maxAdd}"
+                                   value="${state.userBetInput}" oninput="updateBet(this.value)"
+                                   placeholder="סכום" style="text-align:center; font-size:26px; font-weight:bold; margin-bottom:8px;">
+                            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                                <button class="neo-button" style="flex:1; padding:6px 2px; font-size:12px;" onclick="updateBet('${Math.floor(maxAdd * 0.25)}')">25%</button>
+                                <button class="neo-button" style="flex:1; padding:6px 2px; font-size:12px;" onclick="updateBet('${Math.floor(maxAdd * 0.5)}')">50%</button>
+                                <button class="neo-button" style="flex:1; padding:6px 2px; font-size:12px;" onclick="updateBet('${Math.floor(maxAdd * 0.75)}')">75%</button>
+                                <button class="neo-button" style="flex:1; padding:6px 2px; font-size:12px;" onclick="updateBet('${maxAdd}')">MAX</button>
+                            </div>
+                            <button class="neo-button ${isValidBetInput ? 'bg-indigo' : ''}" ${!isValidBetInput ? 'disabled' : ''}
+                                    onclick="submitBettingAction('bet', ${!isNaN(betInput) ? betInput : 0})">
+                                \ud83d\udcc8 הימור ${!isNaN(betInput) && betInput > 0 ? betInput : '?'} נק'
+                            </button>
+                        </div>
+                    </div>` : `
+                    <!-- Someone bet: Call / Raise / Fold -->
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="neo-button bg-teal" ${!canCall ? 'disabled' : ''} onclick="submitBettingAction('call', ${toCall})">
+                            \ud83d\udcde Call – שלם ${toCall} נק' (סה"כ ${currentBet})
+                        </button>
+                        ${maxAdd > 0 ? `
+                        <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
+                            <p style="font-size:13px; opacity:0.7; margin:0 0 6px 0;">הרם מעל ${currentBet} (עד ${currentBet + maxAdd} נק'):</p>
+                            <input type="number" class="neo-input bet-input" min="1" max="${maxAdd}"
+                                   value="${state.userBetInput}" oninput="updateBet(this.value)"
+                                   placeholder="סכום להרמה" style="text-align:center; font-size:24px; font-weight:bold; margin-bottom:8px;">
+                            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                                <button class="neo-button" style="flex:1; padding:6px 2px; font-size:12px;" onclick="updateBet('${Math.floor(maxAdd * 0.25)}')">+25%</button>
+                                <button class="neo-button" style="flex:1; padding:6px 2px; font-size:12px;" onclick="updateBet('${Math.floor(maxAdd * 0.5)}')">+50%</button>
+                                <button class="neo-button" style="flex:1; padding:6px 2px; font-size:12px;" onclick="updateBet('${maxAdd}')">MAX</button>
+                            </div>
+                            <button class="neo-button ${isValidBetInput ? 'bg-indigo' : ''}" ${!isValidBetInput ? 'disabled' : ''}
+                                    onclick="submitBettingAction('raise', ${!isNaN(betInput) ? betInput : 0})">
+                                \ud83d\udcc8 Raise +${!isNaN(betInput) && betInput > 0 ? betInput : '?'} נק'
+                            </button>
+                        </div>` : ''}
+                        <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
+                            <button class="neo-button" style="background:#555; color:white;" onclick="submitBettingAction('fold', 0)">\u274c Fold – התקפל</button>
+                        </div>
+                    </div>`}
+                </div>`;
+        }
+
     } else if (state.roomPhase === 'ANSWERING') {
         if (state.isLockedOut) {
             content = `
-                ${potDisplay}
-                <div style="margin-top:40px; display:flex; flex-direction:column; align-items:center;">
+                ${headerBar}
+                ${playerStatusBar}
+                <div style="margin-top:20px; display:flex; flex-direction:column; align-items:center;">
                     <h2 style="font-size: 22px; text-align:center; margin-bottom: 20px;">${qText}</h2>
-                    <div style="background:var(--wrong-color); color:white; padding:20px; border-radius:16px; text-align:center;">
+                    <div style="background:var(--wrong-color); color:white; padding:20px; border-radius:16px; text-align:center; max-width:300px;">
                         <i class="uil uil-times-circle" style="font-size:48px;"></i>
                         <h3 style="margin-top:10px;">תשובה שגויה!</h3>
-                        <p style="opacity:0.9;">ננעלת בסיבוב זה. יתר השחקנים מנסים כעת...</p>
+                        <p style="opacity:0.9;">ממתין לסיום הסיבוב...</p>
                     </div>
                 </div>
             `;
         } else {
-            // Start timer for multiplayer if it hasn't started
             if (state.isMultiplayer && !state.isAnimatingResult && !state.timerInterval) {
                 startQuestionTimer();
             }
 
             content = `
-                ${potDisplay}
-                <div style="margin-top:30px; width:100%; display: flex; flex-direction: column; flex: 1;">
+                ${headerBar}
+                ${playerStatusBar}
+                <div style="width:100%; display: flex; flex-direction: column; flex: 1;">
                     <div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div>
                     <div class="spacer-sm"></div>
                     <div class="question-layout-container ${q.mediaUrl ? 'has-image' : ''}" style="margin-top:10px; flex: 1;">
+                        <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
                         ${q.mediaUrl ? `
                         <div class="question-layout-image">
                             <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
                         </div>` : ''}
                         <div class="question-layout-content">
-                            <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
                             ${generateOptionsHTML(opts)}
-                            <div style="margin-top:30px; width: 100%;">
+                            <div class="check-btn-wrapper">
                                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                                         onclick="checkBetAnswerMultiplayer()">${getString('check_btn')}</button>
                             </div>
@@ -671,7 +828,7 @@ function renderBetBurn() {
     return `
         <div class="screen-wrapper">
             <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
-            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; width:100%;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:flex-start; padding:8px; position:relative; width:100%; box-sizing:border-box; overflow-y:auto;">
                 ${content}
             </div>
         </div>`;
@@ -922,14 +1079,14 @@ function renderClimb() {
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <div class="${panelAnimClass} question-layout-container ${q.mediaUrl ? 'has-image' : ''}">
+                <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
                 ${q.mediaUrl ? `
                 <div class="question-layout-image">
                     <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
                 </div>` : ''}
                 <div class="question-layout-content">
-                    <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
                     ${generateOptionsHTML(opts)}
-                    <div style="margin-top:30px; width:100%;">
+                    <div class="check-btn-wrapper">
                         <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''}
                                 onclick="checkClimbAnswer()">${getString('check_btn')}</button>
                     </div>
@@ -1936,7 +2093,7 @@ window.startPlay = (cat) => {
 
     // Persist energy across subjects
     const savedEnergy = parseInt(localStorage.getItem('otakuBetBurnEnergy'));
-    state.energy = (savedEnergy && savedEnergy > 0) ? savedEnergy : 100;
+    state.energy = (savedEnergy && savedEnergy > 0) ? savedEnergy : 200;
     localStorage.setItem('otakuBetBurnEnergy', state.energy);
 
     state.rank = 0; state.climbLastResult = null;
@@ -1964,18 +2121,8 @@ window.startPlay = (cat) => {
 
 window.selectOption = (opt) => { state.selectedOption = opt; render(); };
 window.updateBet = (val) => {
-    state.userBetInput = val;
-    const isValid = parseInt(val) > 0 && parseInt(val) <= state.energy;
-    const btn = document.getElementById('lockBetBtn');
-    if (btn) {
-        if (isValid) {
-            btn.classList.add('bg-coral');
-            btn.disabled = false;
-        } else {
-            btn.classList.remove('bg-coral');
-            btn.disabled = true;
-        }
-    }
+    state.userBetInput = String(val);
+    render(); // re-render so lock button reacts to new value
 };
 window.lockInBet = () => { state.currentPhase = 'ANSWERING'; render(); };
 
@@ -2169,7 +2316,7 @@ window.checkBetAnswer = () => {
 window.submitAnte = async (accepted) => {
     state.playerFolded = !accepted;
     if (accepted) {
-        state.energy -= 50;
+        state.energy -= BET_ANTE;
         localStorage.setItem('otakuBetBurnEnergy', state.energy);
     }
 
@@ -2180,29 +2327,56 @@ window.submitAnte = async (accepted) => {
             [`answers.${state.myPlayerName}`]: {
                 action: 'ante',
                 accepted: accepted,
-                amount: accepted ? 50 : 0
+                amount: accepted ? BET_ANTE : 0
             }
         });
+
+        // After 30 seconds, if still waiting for others during ANTE, the host will
+        // auto-fold non-responders. We nudge Firestore so the host snapshot re-evaluates.
+        if (state.anteTimeoutHandle) clearTimeout(state.anteTimeoutHandle);
+        state.anteTimeoutHandle = setTimeout(async () => {
+            // Only act if still waiting in ANTE phase
+            if (state.isWaitingForOthers && state.roomPhase === 'ANTE' && state.roomId) {
+                try {
+                    // Touch the document to wake up the host's onSnapshot listener
+                    await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
+                        _antePing: Date.now()
+                    });
+                } catch (e) { /* ignore */ }
+            }
+        }, 30000);
     } catch (e) { console.error("Error submitting ante:", e); }
 };
 
-window.lockInBetMultiplayer = async () => {
-    const bet = parseInt(state.userBetInput);
-    if (isNaN(bet) || bet < 0 || bet > state.energy) return;
+window.submitBettingAction = async (action, amount) => {
+    amount = parseInt(amount) || 0;
+    if (state.isLockedOut) return;
+    state.isLockedOut = true; // prevent double-submit
+    state.userBetInput = '';
 
-    state.energy -= bet;
-    localStorage.setItem('otakuBetBurnEnergy', state.energy);
+    // Optimistic local energy update
+    if (action === 'call' || action === 'bet' || action === 'raise') {
+        state.energy = Math.max(0, state.energy - amount);
+        localStorage.setItem('otakuBetBurnEnergy', state.energy);
+    } else if (action === 'fold') {
+        state.playerFolded = true;
+    }
 
     try {
-        state.isWaitingForOthers = true;
         render();
         await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-            [`answers.${state.myPlayerName}`]: {
-                action: 'bet',
-                amount: bet
-            }
+            [`answers.${state.myPlayerName}`]: { action, amount }
         });
-    } catch (e) { console.error("Error submitting bet:", e); }
+    } catch (e) {
+        console.error("Error submitting betting action:", e);
+        state.isLockedOut = false;
+    }
+};
+
+// Legacy alias
+window.lockInBetMultiplayer = async () => {
+    const bet = parseInt(state.userBetInput);
+    if (!isNaN(bet) && bet >= 0) await submitBettingAction('bet', bet);
 };
 
 window.checkBetAnswerMultiplayer = async () => {
@@ -2361,6 +2535,12 @@ window.createMultiplayerRoom = async () => {
         return clonedQ;
     });
 
+    // For BET_BURN: start every player at 500
+    if (state.selectedMode === 'BET_BURN') {
+        state.multiplayerPlayers[name].score = BET_START_SCORE;
+        state.energy = BET_START_SCORE;
+    }
+
     try {
         await window.setDoc(window.doc(window.db, "rooms", code), {
             status: 'waiting',
@@ -2371,7 +2551,12 @@ window.createMultiplayerRoom = async () => {
             gameMode: state.selectedMode,
             currentQuestionIndex: 0,
             answers: {},
-            hangmanState: {}
+            hangmanState: {},
+            roomPhase: 'ANTE',
+            roomPot: 0,
+            roomCurrentBet: 0,
+            playerBets: {},
+            foldedPlayers: []
         });
 
         listenToRoom(code);
@@ -2432,7 +2617,8 @@ window.joinMultiplayerRoom = async () => {
         state.selectedMode = data.gameMode || 'CLASSIC';
         state.multiplayerPlayers = data.players || {};
 
-        const newPlayers = { ...data.players, [finalName]: { score: 0, finished: false, isHost: false, isReady: false } };
+        const joinScore = (data.gameMode === 'BET_BURN') ? BET_START_SCORE : 0;
+        const newPlayers = { ...data.players, [finalName]: { score: joinScore, finished: false, isHost: false, isReady: false } };
 
         await window.updateDoc(roomRef, {
             players: newPlayers,
@@ -2497,7 +2683,7 @@ function listenToRoom(code) {
                     state.currentIndex = 0;
                     state.score = 0;
                     state.rank = 0;
-                    state.energy = 100;
+                    state.energy = BET_START_SCORE;
                     state.climbLastResult = null;
                     state.currentPhase = 'BETTING';
                     state.userBetInput = '';
@@ -2535,32 +2721,62 @@ function listenToRoom(code) {
                 }
             }
 
+
             if (state.selectedMode === 'BET_BURN') {
-                if (data.roomPhase !== state.roomPhase || data.currentQuestionIndex > state.currentIndex) {
-                    state.isWaitingForOthers = false;
-                    state.roomPhase = data.roomPhase || 'ANTE';
-                    state.roomPot = data.roomPot || 0;
+                // Always sync all bet-related fields
+                const prevPhase = state.roomPhase;
+                state.roomPhase = data.roomPhase || 'ANTE';
+                state.roomPot = data.roomPot || 0;
+                state.roomCurrentBet = data.roomCurrentBet || 0;
+                state.playerBets = data.playerBets || {};
+                state.roomFoldedPlayers = data.foldedPlayers || [];
+                state.bettingOrder = data.bettingOrder || [];
+                state.currentBettorIndex = data.currentBettorIndex ?? 0;
+                state.bettingActed = data.bettingActed || [];
 
-                    if (data.currentQuestionIndex > state.currentIndex) {
-                        state.currentIndex = data.currentQuestionIndex;
-                        state.selectedOption = null;
-                        state.playerFolded = false;
-                        state.isLockedOut = false;
-                        state.userBetInput = '';
-                    }
-
-                    if (state.roomPhase === 'ANSWERING') {
-                        if (state.timerInterval) clearQuestionTimer();
-                        startQuestionTimer();
-                    } else if (state.roomPhase === 'BETTING') {
-                        // Betting phase just started
-                    }
-
-                    render();
-                } else if (data.roomPot !== state.roomPot) {
-                    state.roomPot = data.roomPot || 0;
-                    render();
+                // If this player was folded but is no longer in foldedPlayers (re-entered),
+                // clear the local fold flag so they see the active BETTING UI
+                if (state.playerFolded && !state.roomFoldedPlayers.includes(state.myPlayerName)) {
+                    state.playerFolded = false;
+                    state.isLockedOut = false;
                 }
+
+                // Reset turn-lock when it's a new phase or when currentBettorIndex moves
+                const newBettor = state.bettingOrder[state.currentBettorIndex];
+                if (prevPhase !== state.roomPhase || newBettor !== state.myPlayerName) {
+                    state.isLockedOut = false;
+                }
+
+                // Reset waiting flag whenever the phase advances (unblocks the waiting screen)
+                if (prevPhase !== state.roomPhase) {
+                    state.isWaitingForOthers = false;
+                    // Cancel any pending ante timeout ping
+                    if (state.anteTimeoutHandle) {
+                        clearTimeout(state.anteTimeoutHandle);
+                        state.anteTimeoutHandle = null;
+                    }
+                }
+
+                if (data.currentQuestionIndex > state.currentIndex) {
+                    state.currentIndex = data.currentQuestionIndex;
+                    state.selectedOption = null;
+                    state.playerFolded = false;
+                    state.isLockedOut = false;
+                    state.isWaitingForOthers = false;
+                    state.userBetInput = '';
+                    // Cancel any pending ante timeout ping
+                    if (state.anteTimeoutHandle) {
+                        clearTimeout(state.anteTimeoutHandle);
+                        state.anteTimeoutHandle = null;
+                    }
+                }
+
+                if (state.roomPhase === 'ANSWERING' && prevPhase !== 'ANSWERING') {
+                    if (state.timerInterval) clearQuestionTimer();
+                    startQuestionTimer();
+                }
+
+                render();
             } else if (data.currentQuestionIndex > state.currentIndex || (data.climbFinished && state.isWaitingForOthers)) {
                 const wasWaiting = state.isWaitingForOthers;
                 state.isWaitingForOthers = false;
@@ -2597,112 +2813,342 @@ function listenToRoom(code) {
 
                 if (state.selectedMode === 'BET_BURN') {
                     const currentPhase = data.roomPhase || 'ANTE';
+                    const playerBets = data.playerBets || {};
 
                     if (currentPhase === 'ANTE') {
                         const anteCount = activePlayerNames.filter(name => answers[name] && answers[name].action === 'ante').length;
-                        if (anteCount === activePlayerNames.length && activePlayerNames.length > 0) {
+
+                        // Auto-fold players who haven't submitted the ante yet if:
+                        // - at least one player already submitted AND accepted
+                        // - the remaining non-responders have been idle for >= 30 seconds
+                        const respondedNames = activePlayerNames.filter(name => answers[name] && answers[name].action === 'ante');
+                        const acceptedNames = respondedNames.filter(name => answers[name].accepted);
+                        const pendingNames = activePlayerNames.filter(name => !answers[name] || answers[name].action !== 'ante');
+
+                        // Check if we should auto-fold pending players (ante timeout)
+                        // We track the timestamp when the first player submitted their ante
+                        const anteTimestamp = data.anteTimestamp || 0;
+                        const anteTimeoutMs = 30000; // 30 seconds
+                        const now = Date.now();
+                        const anteTimedOut = anteTimestamp > 0 && (now - anteTimestamp) >= anteTimeoutMs;
+
+                        // If this player just submitted ante, record a timestamp (host only, once)
+                        if (anteCount > 0 && !data.anteTimestamp) {
+                            window.updateDoc(window.doc(window.db, "rooms", code), { anteTimestamp: now });
+                        }
+
+                        // Resolve ANTE when: all answered, OR timeout fired with at least 1 accepted
+                        const shouldResolve = (anteCount === activePlayerNames.length && activePlayerNames.length > 0)
+                            || (anteTimedOut && acceptedNames.length > 0 && pendingNames.length > 0);
+
+                        if (shouldResolve) {
                             let pot = data.roomPot || 0;
                             let folded = [];
+
+                            // Process those who responded
                             Object.entries(answers).forEach(([name, ans]) => {
                                 if (ans.action === 'ante') {
                                     if (ans.accepted) {
                                         pot += ans.amount;
+                                        updates[`players.${name}.score`] = Math.max(0, (data.players[name].score || 0) - ans.amount);
                                     } else {
                                         folded.push(name);
                                     }
                                 }
                             });
 
-                            updates['roomPot'] = pot;
-                            updates['roomPhase'] = 'BETTING';
-                            updates['foldedPlayers'] = folded;
-                            updates['answers'] = {};
+                            // Treat all non-responding players as folded
+                            pendingNames.forEach(name => {
+                                if (!folded.includes(name)) folded.push(name);
+                            });
 
-                            if (folded.length === activePlayerNames.length) {
+                            // Build turn order: host first, then others in player-map key order
+                            const activeBettors = activePlayerNames.filter(n => !folded.includes(n));
+                            const hostName = data.hostName;
+                            const betOrder = [
+                                ...activeBettors.filter(n => n === hostName),
+                                ...activeBettors.filter(n => n !== hostName)
+                            ];
+
+                            updates['roomPot'] = pot;
+                            updates['answers'] = {};
+                            updates['anteTimestamp'] = 0; // reset for next round
+
+                            if (folded.length === activePlayerNames.length || betOrder.length === 0) {
+                                // Everyone folded (or timed out) → refund pot to those who paid and skip round
+                                // Refund anyone who accepted the ante
+                                acceptedNames.forEach(name => {
+                                    const refundAmount = answers[name]?.amount || 0;
+                                    const currentScore = (updates[`players.${name}.score`] !== undefined)
+                                        ? updates[`players.${name}.score`]
+                                        : (data.players[name]?.score || 0);
+                                    updates[`players.${name}.score`] = currentScore + refundAmount;
+                                });
+                                const nextIdx = (data.currentQuestionIndex || 0) + 1;
                                 updates['roomPhase'] = 'ANTE';
-                                updates['currentQuestionIndex'] = data.currentQuestionIndex + 1;
+                                updates['currentQuestionIndex'] = nextIdx;
                                 updates['roomPot'] = 0;
                                 updates['foldedPlayers'] = [];
-                                if (data.currentQuestionIndex >= data.playlist.length - 1) {
+                                updates['playerBets'] = {};
+                                updates['roomCurrentBet'] = 0;
+                                updates['bettingOrder'] = [];
+                                updates['currentBettorIndex'] = 0;
+                                updates['bettingActed'] = [];
+                                if (nextIdx >= (data.playlist || []).length) {
                                     Object.keys(data.players).forEach(p => updates[`players.${p}.finished`] = true);
                                 }
+                            } else if (betOrder.length === 1) {
+                                // Only 1 player accepted → refund their ante and skip round (no one to play against)
+                                const soloPlayer = betOrder[0];
+                                const paidAmount = answers[soloPlayer]?.amount || 0;
+                                const currentScore = (updates[`players.${soloPlayer}.score`] !== undefined)
+                                    ? updates[`players.${soloPlayer}.score`]
+                                    : (data.players[soloPlayer]?.score || 0);
+                                updates[`players.${soloPlayer}.score`] = currentScore + paidAmount;
+                                const nextIdx = (data.currentQuestionIndex || 0) + 1;
+                                updates['roomPhase'] = 'ANTE';
+                                updates['currentQuestionIndex'] = nextIdx;
+                                updates['roomPot'] = 0;
+                                updates['foldedPlayers'] = [];
+                                updates['playerBets'] = {};
+                                updates['roomCurrentBet'] = 0;
+                                updates['bettingOrder'] = [];
+                                updates['currentBettorIndex'] = 0;
+                                updates['bettingActed'] = [];
+                                if (nextIdx >= (data.playlist || []).length) {
+                                    Object.keys(data.players).forEach(p => updates[`players.${p}.finished`] = true);
+                                }
+                            } else {
+                                // Normal: circular betting starts with first player in betOrder
+                                updates['roomPhase'] = 'BETTING';
+                                updates['foldedPlayers'] = folded;
+                                updates['playerBets'] = {};
+                                updates['roomCurrentBet'] = 0;
+                                updates['bettingOrder'] = betOrder;
+                                updates['currentBettorIndex'] = 0;
+                                updates['bettingActed'] = [];
                             }
                             window.updateDoc(window.doc(window.db, "rooms", code), updates);
                         }
+
                     } else if (currentPhase === 'BETTING') {
+                        // Turn-by-turn circular betting
+                        const bettingOrder = data.bettingOrder || [];
+                        const currentBettorIndex = data.currentBettorIndex ?? 0;
+                        const currentBettor = bettingOrder[currentBettorIndex];
+                        const playerBets = data.playerBets || {};
                         const folded = data.foldedPlayers || [];
-                        const bettingPlayers = activePlayerNames.filter(name => !folded.includes(name));
-                        const betCount = bettingPlayers.filter(name => answers[name] && answers[name].action === 'bet').length;
-                        if (betCount === bettingPlayers.length && bettingPlayers.length > 0) {
-                            let pot = data.roomPot || 0;
-                            Object.entries(answers).forEach(([name, ans]) => {
-                                if (ans.action === 'bet') {
-                                    pot += ans.amount;
-                                }
-                            });
-                            updates['roomPot'] = pot;
-                            updates['roomPhase'] = 'ANSWERING';
-                            updates['answers'] = {};
-                            window.updateDoc(window.doc(window.db, "rooms", code), updates);
+                        const roomCurrentBet = data.roomCurrentBet || 0;
+                        const bettingActed = data.bettingActed || [];
+
+                        // Check if any folded player submitted a reenter action
+                        // Any player who folded during BETTING can re-enter by calling the current bet
+                        const reenterPlayer = folded.find(n => answers[n]?.action === 'reenter');
+
+                        if (reenterPlayer) {
+                            // Process re-entry: player pays current bet and rejoins
+                            const reenterAmount = Math.max(0, roomCurrentBet - (playerBets[reenterPlayer] || 0));
+                            const newBets = { ...playerBets };
+                            const newFolded = folded.filter(n => n !== reenterPlayer);
+
+                            newBets[reenterPlayer] = roomCurrentBet;
+                            // Add them to bettingOrder right after the current bettor
+                            const newBettingOrder = [...bettingOrder];
+                            const insertIdx = (currentBettorIndex + 1) % (newBettingOrder.length + 1);
+                            newBettingOrder.splice(insertIdx, 0, reenterPlayer);
+                            // Mark them as acted (they called the current bet)
+                            const newActed = [...bettingActed, reenterPlayer];
+
+                            const reenterUpdates = {
+                                'foldedPlayers': newFolded,
+                                'playerBets': newBets,
+                                'bettingOrder': newBettingOrder,
+                                'bettingActed': newActed,
+                                'answers': {},
+                                [`players.${reenterPlayer}.score`]: Math.max(0, (data.players[reenterPlayer]?.score || 0) - reenterAmount),
+                                'roomPot': (data.roomPot || 0) + reenterAmount
+                            };
+                            window.updateDoc(window.doc(window.db, "rooms", code), reenterUpdates);
+                            return;
                         }
+
+                        if (!currentBettor || !answers[currentBettor]) return; // not yet acted
+
+                        const ans = answers[currentBettor];
+                        const newBets = { ...playerBets };
+                        const newFolded = [...folded];
+                        let newBet = roomCurrentBet;
+                        let newActed = [...bettingActed];
+                        let deducted = 0;
+
+                        if (ans.action === 'check') {
+                            // No change to bet
+                        } else if (ans.action === 'bet') {
+                            deducted = ans.amount || 0;
+                            newBets[currentBettor] = (newBets[currentBettor] || 0) + deducted;
+                            newBet = newBets[currentBettor];
+                            newActed = [currentBettor]; // reset: others need to respond to the new bet
+                        } else if (ans.action === 'raise') {
+                            deducted = (ans.amount || 0) + Math.max(0, roomCurrentBet - (playerBets[currentBettor] || 0));
+                            newBets[currentBettor] = (playerBets[currentBettor] || 0) + deducted;
+                            newBet = newBets[currentBettor];
+                            newActed = [currentBettor]; // reset: others need to respond to raise
+                        } else if (ans.action === 'call') {
+                            deducted = Math.max(0, roomCurrentBet - (playerBets[currentBettor] || 0));
+                            newBets[currentBettor] = roomCurrentBet;
+                        } else if (ans.action === 'fold') {
+                            newFolded.push(currentBettor);
+                        }
+
+                        if (!newActed.includes(currentBettor)) {
+                            newActed.push(currentBettor);
+                        }
+
+                        if (deducted > 0) {
+                            updates[`players.${currentBettor}.score`] = Math.max(0, (data.players[currentBettor]?.score || 0) - deducted);
+                            updates['roomPot'] = (data.roomPot || 0) + deducted;
+                        }
+
+                        // Find next non-folded player in the order
+                        const stillActive = bettingOrder.filter(n => !newFolded.includes(n));
+                        let nextIndex = currentBettorIndex;
+                        for (let i = 1; i <= bettingOrder.length; i++) {
+                            const idx = (currentBettorIndex + i) % bettingOrder.length;
+                            if (!newFolded.includes(bettingOrder[idx])) {
+                                nextIndex = idx;
+                                break;
+                            }
+                        }
+
+                        // Check if the betting round is complete:
+                        // All still-active players have acted AND all have matched the current bet
+                        const allActed = stillActive.length > 0 && stillActive.every(n => newActed.includes(n));
+                        const allMatched = stillActive.every(n => (newBets[n] || 0) >= newBet);
+                        const roundDone = stillActive.length <= 1 || (allActed && allMatched);
+
+                        updates['playerBets'] = newBets;
+                        updates['foldedPlayers'] = newFolded;
+                        updates['roomCurrentBet'] = newBet;
+                        updates['bettingActed'] = newActed;
+                        updates['answers'] = {};
+
+                        if (roundDone) {
+                            if (stillActive.length === 1) {
+                                // Only 1 player left after folds → award pot immediately, no question needed
+                                const winner = stillActive[0];
+                                const pot = (updates['roomPot'] !== undefined ? updates['roomPot'] : data.roomPot) || 0;
+                                const prevScore = (updates[`players.${winner}.score`] !== undefined)
+                                    ? updates[`players.${winner}.score`]
+                                    : (data.players[winner]?.score || 0);
+                                updates[`players.${winner}.score`] = prevScore + pot;
+                                updates['roomPot'] = 0;
+                                updates['roomPhase'] = 'ANTE';
+                                updates['foldedPlayers'] = [];
+                                updates['playerBets'] = {};
+                                updates['roomCurrentBet'] = 0;
+                                updates['bettingOrder'] = [];
+                                updates['currentBettorIndex'] = 0;
+                                updates['bettingActed'] = [];
+                                updates['answers'] = {};
+
+                                showToast(`🏆 ${winner} זכה ב-${pot} נק' כי כולם התקפלו!`, 'success', 3000);
+
+                                // Check win/elimination conditions
+                                Object.entries(data.players).forEach(([pName, pData]) => {
+                                    const finalScore = (updates[`players.${pName}.score`] !== undefined)
+                                        ? updates[`players.${pName}.score`]
+                                        : pData.score;
+                                    if (finalScore <= 0) updates[`players.${pName}.finished`] = true;
+                                });
+
+                                let someoneWon = false;
+                                Object.entries(data.players).forEach(([pName, pData]) => {
+                                    const finalScore = (updates[`players.${pName}.score`] !== undefined)
+                                        ? updates[`players.${pName}.score`]
+                                        : pData.score;
+                                    if (finalScore >= BET_WIN_TARGET) someoneWon = true;
+                                });
+
+                                if (someoneWon || data.currentQuestionIndex >= data.playlist.length - 1) {
+                                    Object.keys(data.players).forEach(p => updates[`players.${p}.finished`] = true);
+                                } else {
+                                    updates['currentQuestionIndex'] = data.currentQuestionIndex + 1;
+                                }
+                            } else {
+                                // 2+ players remain → proceed to question (folded player's pot stays as prize)
+                                updates['roomPhase'] = 'ANSWERING';
+                                updates['bettingOrder'] = [];
+                                updates['currentBettorIndex'] = 0;
+                            }
+                        } else {
+                            updates['currentBettorIndex'] = nextIndex;
+                        }
+
+                        window.updateDoc(window.doc(window.db, "rooms", code), updates);
+
                     } else if (currentPhase === 'ANSWERING') {
                         const folded = data.foldedPlayers || [];
                         const answeringPlayers = activePlayerNames.filter(name => !folded.includes(name));
 
-                        let winner = null;
-                        let earliest = Infinity;
-                        let wrongCount = 0;
+                        // Wait for all answering players to submit
+                        const answeredCount = answeringPlayers.filter(name =>
+                            answers[name] && answers[name].action === 'answer').length;
+                        const timedOutCount = answeringPlayers.filter(name =>
+                            answers[name] && answers[name].action === 'answer' && answers[name].isCorrect === false &&
+                            answers[name].timeout).length;
 
-                        Object.entries(answers).forEach(([name, ans]) => {
-                            if (ans.action === 'answer') {
-                                if (ans.isCorrect && ans.time < earliest) {
-                                    winner = name;
-                                    earliest = ans.time;
-                                } else if (!ans.isCorrect) {
-                                    wrongCount++;
-                                }
+                        const allAnswered = answeredCount === answeringPlayers.length && answeringPlayers.length > 0;
+
+                        if (allAnswered) {
+                            // Find all correct answerers → split pot equally
+                            const winners = answeringPlayers.filter(name =>
+                                answers[name] && answers[name].action === 'answer' && answers[name].isCorrect);
+
+                            const pot = data.roomPot || 0;
+
+                            if (winners.length > 0) {
+                                const share = Math.floor(pot / winners.length);
+                                winners.forEach(w => {
+                                    const prev = (updates[`players.${w}.score`] !== undefined)
+                                        ? updates[`players.${w}.score`]
+                                        : (data.players[w].score || 0);
+                                    updates[`players.${w}.score`] = prev + share;
+                                });
+                                showToast(`🎉 ${winners.length > 1 ? `${winners.length} שחקנים זכו ב-${share} נק' כל אחד!` : `${winners[0]} זכה ב-${pot} נק'!`}`, 'success', 3000);
                             }
-                        });
+                            // else nobody correct → pot is burned
 
-                        if (winner) {
-                            const currentScore = data.players[winner].score || 0;
-                            updates[`players.${winner}.score`] = currentScore + (data.roomPot || 0);
                             updates['roomPot'] = 0;
                             updates['roomPhase'] = 'ANTE';
                             updates['foldedPlayers'] = [];
+                            updates['playerBets'] = {};
+                            updates['roomCurrentBet'] = 0;
                             updates['answers'] = {};
 
-                            if (data.currentQuestionIndex >= data.playlist.length - 1) {
-                                Object.keys(data.players).forEach(p => updates[`players.${p}.finished`] = true);
-                            } else {
-                                updates['currentQuestionIndex'] = data.currentQuestionIndex + 1;
-                            }
-
-                            // Check for eliminated players
+                            // Eliminate players at 0 points
                             Object.entries(data.players).forEach(([pName, pData]) => {
-                                const finalScore = (pName === winner) ? updates[`players.${pName}.score`] : pData.score;
+                                const finalScore = (updates[`players.${pName}.score`] !== undefined)
+                                    ? updates[`players.${pName}.score`]
+                                    : pData.score;
                                 if (finalScore <= 0) {
                                     updates[`players.${pName}.finished`] = true;
                                 }
                             });
 
-                            window.updateDoc(window.doc(window.db, "rooms", code), updates);
-                        } else if (wrongCount === answeringPlayers.length && answeringPlayers.length > 0) {
-                            updates['roomPot'] = 0; // Burn the pot
-                            updates['roomPhase'] = 'ANTE';
-                            updates['foldedPlayers'] = [];
-                            updates['answers'] = {};
+                            // Check win condition (≥1000) at end of round
+                            let someoneWon = false;
+                            Object.entries(data.players).forEach(([pName, pData]) => {
+                                const finalScore = (updates[`players.${pName}.score`] !== undefined)
+                                    ? updates[`players.${pName}.score`]
+                                    : pData.score;
+                                if (finalScore >= BET_WIN_TARGET) someoneWon = true;
+                            });
 
-                            if (data.currentQuestionIndex >= data.playlist.length - 1) {
+                            if (someoneWon || data.currentQuestionIndex >= data.playlist.length - 1) {
                                 Object.keys(data.players).forEach(p => updates[`players.${p}.finished`] = true);
                             } else {
                                 updates['currentQuestionIndex'] = data.currentQuestionIndex + 1;
                             }
-
-                            // Check for eliminated players
-                            Object.entries(data.players).forEach(([pName, pData]) => {
-                                if (pData.score <= 0) updates[`players.${pName}.finished`] = true;
-                            });
 
                             window.updateDoc(window.doc(window.db, "rooms", code), updates);
                         }
@@ -2914,7 +3360,7 @@ function renderMultiplayerWaitScreen() {
 
     const leaderboardHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
-        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-bolt"></i> ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-coins"></i> ${pData.score} נק'` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
         return `
         <div style="display:flex; justify-content:space-between; align-items:center; background:${isMe ? 'var(--vibrant-indigo)' : 'var(--white)'}; color:${isMe ? 'var(--white)' : 'var(--app-text)'}; padding:10px 15px; margin:5px 0; border-radius:8px; border: 2px solid var(--app-text); font-weight:bold;">
             <div>#${idx + 1} &nbsp; ${pName} ${pData.finished ? '✅' : '<i class="uit uit-hourglass"></i>'}</div>
@@ -2950,7 +3396,7 @@ function renderMultiplayerResults() {
 
     const podiumHtml = playersArr.map(([pName, pData], idx) => {
         const isMe = pName === state.myPlayerName;
-        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-bolt"></i> ${pData.score}` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
+        const scoreDisplay = state.selectedMode === 'BET_BURN' ? `<i class="uil uil-coins"></i> ${pData.score} נק'` : state.selectedMode === 'CLIMB' ? `רמה ${pData.score}` : state.selectedMode === 'MATCH_PAIRS' ? `${pData.score} / 25` : `${pData.score} / 10`;
         let medal = '';
         if (idx === 0) medal = '🥇';
         else if (idx === 1) medal = '🥈';

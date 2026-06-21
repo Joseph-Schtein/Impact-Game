@@ -45,8 +45,11 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* Use geometric precision for crisp text at all sizes */
-    text-rendering: geometricPrecision;
+    /* Force GPU compositing for the whole page — sharpens anti-aliasing */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 input,
@@ -163,11 +166,13 @@ h2 {
     margin-bottom: 12px;
     /* Raised 3D look at rest */
     box-shadow: 0 5px 0 rgba(33, 2, 110, 0.35), 0 6px 8px rgba(33, 2, 110, 0.15);
-    transform: translateY(0px);
-    /* Isolate GPU layer to THIS element only — prevents parent text from blurring */
+    /* Use translate3d so the button lives on its own GPU layer — keeps text crisp */
+    transform: translate3d(0, 0, 0);
     will-change: transform;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Force sub-pixel anti-aliasing inside the composited layer */
+    filter: blur(0);
 }
 
 .neo-button:hover {
@@ -311,6 +316,11 @@ h2 {
     /* harder black */
     border-color: #000000 !important;
     color: #ffffff !important;
+}
+
+.check-btn-wrapper {
+    margin-top: 30px;
+    width: 100%;
 }
 
 @keyframes resultPop {
@@ -1273,6 +1283,10 @@ h2 {
         max-width: 1000px;
     }
 
+    .check-btn-wrapper {
+        margin-top: 75px;
+    }
+
     .question-layout-container {
         display: flex;
         flex-direction: column;
@@ -1280,30 +1294,42 @@ h2 {
     }
 
     .question-layout-container.has-image {
-        flex-direction: row-reverse;
-        align-items: center;
-        justify-content: space-between;
-        gap: 40px;
-    }
-
-    .question-layout-image {
-        margin-bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr 1.3fr;
+        gap: 0 40px;
+        align-items: flex-start;
     }
 
     .question-layout-container.has-image .question-layout-image {
-        width: 55%;
+        grid-column: 2;
+        grid-row: 2 / 10;
+        margin-top: 0;
         margin-bottom: 0;
-        position: static;
-        height: auto;
         display: flex;
-        justify-content: center;
-        align-items: center;
+        justify-content: flex-end;
+        align-items: flex-start;
     }
 
     .question-layout-container.has-image .question-layout-content {
-        width: 45%;
-        margin: 0;
-        max-width: none;
+        display: contents;
+    }
+
+    .question-layout-container.has-image .question-text {
+        grid-column: 1;
+        grid-row: 1;
+        text-align: right !important;
+        align-self: center;
+        width: 100%;
+    }
+
+    .question-layout-container.has-image .neo-button {
+        grid-column: 1;
+        margin-right: 0;
+        margin-left: auto;
+    }
+
+    .question-layout-container.has-image .check-btn-wrapper {
+        grid-column: 1;
     }
 
     .question-layout-container.has-image .trivia-question-image {
@@ -1316,8 +1342,8 @@ h2 {
     }
 
     .question-layout-container.has-image .question-text {
-        text-align: right !important;
-        align-self: flex-start;
+        text-align: center !important;
+        align-self: center;
     }
 }
 
