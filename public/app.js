@@ -542,9 +542,16 @@ function renderClassic() {
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <h2 style="font-size: 20px;">${qText}</h2>
-            ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />` : ''}
-            ${generateOptionsHTML(opts)}
+            <div class="question-layout-container">
+                ${q.mediaUrl ? `
+                <div class="question-layout-image">
+                    <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
+                </div>` : ''}
+                <div class="question-layout-content">
+                    <h2 style="font-size: 20px;">${qText}</h2>
+                    ${generateOptionsHTML(opts)}
+                </div>
+            </div>
             <div style="margin-top:auto; width:100%;">
                 <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
                         onclick="checkAnswer()">${getString('check_btn')}</button>
@@ -840,10 +847,15 @@ function renderClimb() {
 
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <div class="${panelAnimClass}">
-                <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
-                ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />` : ''}
-                ${generateOptionsHTML(opts)}
+            <div class="${panelAnimClass} question-layout-container">
+                ${q.mediaUrl ? `
+                <div class="question-layout-image">
+                    <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
+                </div>` : ''}
+                <div class="question-layout-content">
+                    <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
+                    ${generateOptionsHTML(opts)}
+                </div>
             </div>
 
             <div style="margin-top:auto; width:100%;">
@@ -1506,15 +1518,15 @@ function renderAddQuestion() {
 async function filterContentWithAgent(contentData) {
     if (!window.functions || !window.httpsCallable) {
         console.warn("Firebase Functions not initialized");
-        return "APPROVE";
+        return "REJECT";
     }
     try {
         const checkQuestion = window.httpsCallable(window.functions, 'checkQuestionWithAgent');
         const result = await checkQuestion(contentData);
-        return result.data.status || "APPROVE";
+        return result.data.status || "REJECT";
     } catch (e) {
         console.error("Cloud function error:", e);
-        return "APPROVE"; // Fail open
+        return "REJECT"; // Fail closed
     }
 }
 
