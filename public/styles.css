@@ -1388,3 +1388,31 @@ h2 {
     max-height: 64px;
     border-radius: 8px;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   ── Bet / Poker Game Mode ──
+══════════════════════════════════════════════════════════════ */
+
+/* Ensures all bet-game content is centered and full-width on any screen */
+.bet-content-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* On mobile: cards use full width minus small padding */
+@media (max-width: 600px) {
+    .bet-input {
+        font-size: 24px !important;
+        width: 90% !important;
+    }
+}
+
+/* On PC: widen app container for better bet game use of space */
+@media (min-width: 768px) {
+    /* The bet game status pills look better slightly wider */
+    .screen-wrapper > div[style*="overflow-y:auto"] {
+        padding: 16px 24px;
+    }
+}

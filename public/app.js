@@ -553,7 +553,7 @@ function renderClassic() {
             <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
-            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--app-text); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <div class="question-layout-container ${q.mediaUrl ? 'has-image' : ''}">
                 <h2 class="question-text" style="font-size: 24px; text-align: center; margin-bottom: 20px;">${qText}</h2>
                 ${q.mediaUrl ? `
@@ -594,21 +594,21 @@ function renderBetBurn() {
         return `
             <div class="screen-wrapper">
                 <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
-                <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:16px;">
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:16px; width:100%;">
                     <h2 class="main-title" style="text-align:center; margin-top:0;">התקפלת (Fold)</h2>
-                    <div style="background:rgba(33,2,110,0.08); border-radius:16px; padding:16px 30px; font-size:20px; font-weight:bold; border:2px solid var(--vibrant-indigo); text-align:center;">
-                        <i class="uil uil-coins" style="color:var(--vibrant-teal);"></i> הניקוד שלך: ${state.energy} נק'
+                    <div style="background:rgba(33,2,110,0.08); border-radius:16px; padding:16px 30px; font-size:20px; font-weight:bold; border:2px solid var(--app-text); text-align:center;">
+                        <i class="uil uil-coins" style="color:var(--app-text);"></i> הניקוד שלך: ${state.energy} נק'
                     </div>
                     ${canReenter ? `
-                    <div style="background:linear-gradient(135deg,rgba(0,180,140,0.12),rgba(33,2,110,0.12)); border-radius:20px; padding:20px; width:100%; max-width:320px; border:2px solid var(--vibrant-teal); text-align:center;">
+                    <div style="background:linear-gradient(135deg,rgba(0,180,140,0.12),rgba(33,2,110,0.12)); border-radius:20px; padding:20px; width:100%; max-width:min(320px,100%); border:2px solid var(--accent-teal); text-align:center;">
                         <div style="font-size:32px; margin-bottom:8px;">🔄</div>
                         <h3 style="margin:0 0 8px 0; font-size:20px;">הצטרף מחדש לסיבוב!</h3>
                         <p style="opacity:0.8; font-size:14px; margin-bottom:16px;">שחקן אחר הציב הימור. תוכל להשתוות ולהיכנס לסיבוב.</p>
                         <div style="background:rgba(0,0,0,0.07); border-radius:10px; padding:10px; margin-bottom:16px; font-size:18px; font-weight:bold;">
-                            💰 עלות כניסה: <span style="color:var(--vibrant-coral);">${currentBet} נק'</span>
+                            <i class="uil uil-moneybag-alt"></i> עלות כניסה: <span style="color:var(--app-text);">${currentBet} נק'</span>
                         </div>
                         <button class="neo-button bg-teal" onclick="submitBettingAction('reenter', ${currentBet})">
-                            ✅ הצטרף – שלם ${currentBet} נק'
+                            <i class="uil uil-check"></i> הצטרף – שלם ${currentBet} נק'
                         </button>
                     </div>` : `
                     <p class="bold color-indigo" style="text-align:center; font-size:18px;">ממתין לסיום הסיבוב...</p>
@@ -630,9 +630,9 @@ function renderBetBurn() {
         const isMe = pName === state.myPlayerName;
         const folded = (state.roomFoldedPlayers || []).includes(pName);
         const committed = (state.playerBets || {})[pName] || 0;
-        return `<div style="padding:4px 12px; border-radius:20px; font-size:13px; font-weight:bold;
-                    background:${folded ? '#888' : isMe ? 'var(--vibrant-indigo)' : 'var(--vibrant-teal)'}; color:white;">
-                    ${folded ? '❌' : '✅'} ${pName}: ${pData.score ?? 0} נק'${committed > 0 ? ` (+${committed})` : ''}
+        return `<div style="padding:4px 12px; border-radius:20px; font-size:13px; font-weight:bold; border:2px solid var(--app-text);
+                    background:transparent; color:var(--app-text);">
+                    ${folded ? '❌' : '<i class="uil uil-check"></i>'} ${pName}: ${pData.score ?? 0} נק'${committed > 0 ? ` (+${committed})` : ''}
                 </div>`;
     }).join('')}
         </div>`;
@@ -641,12 +641,12 @@ function renderBetBurn() {
     const headerBar = `
         <div style="width:100%; display:flex; justify-content:space-between; align-items:center;
                     padding:8px 16px; background:rgba(33,2,110,0.08); border-radius:14px;
-                    margin-bottom:10px; border:2px solid var(--vibrant-teal); box-sizing:border-box;">
+                    margin-bottom:10px; border:2px solid var(--app-text); box-sizing:border-box;">
             <div style="font-weight:bold; font-size:15px; color:var(--app-text);">
-                <i class="uil uil-money-stack" style="color:var(--vibrant-teal);"></i> קופה: <b style="color:var(--vibrant-teal);">${state.roomPot}</b>
+                <i class="uil uil-money-stack" style="color:var(--app-text);"></i> קופה: <b style="color:var(--app-text);">${state.roomPot}</b>
             </div>
             <div style="font-weight:bold; font-size:15px; color:var(--app-text);">
-                <i class="uil uil-coins" style="color:var(--vibrant-coral);"></i> הניקוד שלך: <b style="color:var(--vibrant-coral);">${state.energy}</b>
+                <i class="uil uil-coins" style="color:var(--app-text);"></i> הניקוד שלך: <b style="color:var(--app-text);">${state.energy}</b>
             </div>
         </div>`;
 
@@ -655,18 +655,18 @@ function renderBetBurn() {
         content = `
             ${headerBar}
             ${playerStatusBar}
-            <div style="background:linear-gradient(135deg,rgba(33,2,110,0.07),rgba(0,180,140,0.07)); border-radius:20px; padding:24px 20px; width:100%; max-width:340px; margin:0 auto; border:2px solid var(--app-text); text-align:center;">
-                <div style="font-size:48px; margin-bottom:8px;">🎲</div>
+            <div style="background:linear-gradient(135deg,rgba(33,2,110,0.07),rgba(0,180,140,0.07)); border-radius:20px; padding:24px 20px; width:100%; max-width:min(440px,100%); margin:0 auto; border:2px solid var(--app-text); text-align:center;">
+                <div style="font-size:48px; margin-bottom:8px;"><i class="uil uil-dice-five"></i></div>
                 <h2 style="font-size:26px; margin:0 0 8px 0;">שלב הפתיחה (Ante)</h2>
                 <p style="opacity:0.8; font-size:15px; margin-bottom:20px;">שלם ${BET_ANTE} נק' כדי להיכנס לסיבוב הבא, או התקפל וחסוך אותם.</p>
                 <div style="background:rgba(33,2,110,0.1); border-radius:12px; padding:12px; margin-bottom:20px; font-size:18px; font-weight:bold;">
-                    💰 עלות כניסה: <span style="color:var(--vibrant-coral);">${BET_ANTE} נק'</span>
+                    <i class="uil uil-moneybag-alt"></i> עלות כניסה: <span style="color:var(--app-text);">${BET_ANTE} נק'</span>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:12px;">
                     <button class="neo-button ${hasEnough ? 'bg-coral' : ''}" ${!hasEnough ? 'disabled' : ''} onclick="submitAnte(true)">
                         ✅ שלם ${BET_ANTE} נק' והמשך
                     </button>
-                    <button class="neo-button" style="background:#555; color:white;" onclick="submitAnte(false)">
+                    <button class="neo-button" style="background:transparent; color:var(--app-text);" onclick="submitAnte(false)">
                         ❌ התקפל (Fold)
                     </button>
                 </div>
@@ -695,9 +695,9 @@ function renderBetBurn() {
             const fld = foldedList.includes(pName);
             const committed = (state.playerBets || {})[pName] || 0;
             const acted = (state.bettingActed || []).includes(pName);
-            return `<div style="padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold; border:2px solid ${isTurn ? 'var(--vibrant-coral)' : 'transparent'};
-                        background:${fld ? '#888' : isTurn ? 'var(--vibrant-coral)' : acted ? 'var(--vibrant-teal)' : 'var(--vibrant-indigo)'}; color:white;">
-                        ${fld ? '\u274c' : isTurn ? '\u23f3' : '\u2705'} ${pName}<br/>
+            return `<div style="padding:5px 10px; border-radius:20px; font-size:12px; font-weight:bold; border:2px solid ${isTurn ? 'var(--accent-Back)' : 'var(--app-text)'};
+                        background:transparent; color:var(--app-text);">
+                        ${fld ? '\u274c' : isTurn ? '<i class="uil uil-hourglass"></i>' : '<i class="uil uil-check"></i>'} ${pName}<br/>
                         <span style="font-size:11px; opacity:0.85;">${pData.score ?? 0} נק' | הימור: ${committed}</span>
                     </div>`;
         }).join('')}
@@ -708,11 +708,11 @@ function renderBetBurn() {
             content = `
                 ${headerBar}
                 ${fullStatusBar}
-                <div style="background:rgba(33,2,110,0.07); border-radius:20px; padding:24px; width:100%; max-width:340px; margin:0 auto; border:2px solid var(--vibrant-indigo); text-align:center;">
+                <div style="background:rgba(33,2,110,0.07); border-radius:20px; padding:24px; width:100%; max-width:min(440px,100%); margin:0 auto; border:2px solid var(--app-text); text-align:center;">
                     <h2 style="font-size:20px; margin:0 0 8px 0;">${qText}</h2>
                     ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="" style="margin-bottom:12px;" />` : ''}
-                    <div style="font-size:36px; margin:12px 0;">\u23f3</div>
-                    <p style="font-weight:bold; font-size:18px; margin:0 0 6px 0;">ממתין ל-<span style="color:var(--vibrant-coral);">${currentBettor}</span>...</p>
+                    <div style="font-size:36px; margin:12px 0;"><i class="uil uil-hourglass"></i></div>
+                    <p style="font-weight:bold; font-size:18px; margin:0 0 6px 0;">ממתין ל-<span style="color:var(--app-text);">${currentBettor}</span>...</p>
                     <p style="opacity:0.7; font-size:14px;">הימור נוכחי: <b>${currentBet} נק'</b></p>
                 </div>`;
         } else {
@@ -723,8 +723,8 @@ function renderBetBurn() {
             content = `
                 ${headerBar}
                 ${fullStatusBar}
-                <div style="background:rgba(0,0,0,0.03); border-radius:20px; padding:18px; width:100%; max-width:340px; margin:0 auto; border:3px solid var(--vibrant-coral);">
-                    <div style="background:var(--vibrant-coral); color:white; border-radius:10px; padding:6px 12px; font-size:13px; font-weight:bold; text-align:center; margin-bottom:12px;">\u23f0 התור שלך לפעול!</div>
+                <div style="background:rgba(0,0,0,0.03); border-radius:20px; padding:18px; width:100%; max-width:min(440px,100%); margin:0 auto; border:3px solid var(--accent-Back);">
+                    <div style="background:transparent; color:var(--app-text); border:2px solid var(--app-text); border-radius:10px; padding:6px 12px; font-size:13px; font-weight:bold; text-align:center; margin-bottom:12px;"><i class="uil uil-clock"></i> התור שלך לפעול!</div>
                     <h2 style="font-size:19px; margin:0 0 6px 0; text-align:center;">${qText}</h2>
                     ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="" style="margin-bottom:10px;" />` : ''}
                     <div style="font-size:13px; background:rgba(33,2,110,0.07); border-radius:8px; padding:8px 12px; margin-bottom:12px; display:flex; justify-content:space-between;">
@@ -736,7 +736,7 @@ function renderBetBurn() {
                     ${isOpeningBet ? `
                     <!-- No bet yet: Check or Bet -->
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button class="neo-button bg-teal" onclick="submitBettingAction('check', 0)">\u2714\ufe0f צ'ק (המשך בלי הימור)</button>
+                        <button class="neo-button bg-teal" onclick="submitBettingAction('check', 0)"><i class="uil uil-check"></i> צ'ק אין (המשך בלי הימור)</button>
                         <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
                             <p style="font-size:13px; opacity:0.7; margin:0 0 6px 0;">פתח הימור (מקסימום ${maxAdd} נק'):</p>
                             <input type="number" class="neo-input bet-input" min="1" max="${maxAdd}"
@@ -750,14 +750,14 @@ function renderBetBurn() {
                             </div>
                             <button class="neo-button ${isValidBetInput ? 'bg-indigo' : ''}" ${!isValidBetInput ? 'disabled' : ''}
                                     onclick="submitBettingAction('bet', ${!isNaN(betInput) ? betInput : 0})">
-                                \ud83d\udcc8 הימור ${!isNaN(betInput) && betInput > 0 ? betInput : '?'} נק'
+                                <i class="uil uil-statistics"></i> הימור ${!isNaN(betInput) && betInput > 0 ? betInput : '?'} נק'
                             </button>
                         </div>
                     </div>` : `
                     <!-- Someone bet: Call / Raise / Fold -->
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button class="neo-button bg-teal" ${!canCall ? 'disabled' : ''} onclick="submitBettingAction('call', ${toCall})">
-                            \ud83d\udcde Call – שלם ${toCall} נק' (סה"כ ${currentBet})
+                            <i class="uil uil-phone"></i> Call – שלם ${toCall} נק' (סה"כ ${currentBet})
                         </button>
                         ${maxAdd > 0 ? `
                         <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
@@ -772,11 +772,11 @@ function renderBetBurn() {
                             </div>
                             <button class="neo-button ${isValidBetInput ? 'bg-indigo' : ''}" ${!isValidBetInput ? 'disabled' : ''}
                                     onclick="submitBettingAction('raise', ${!isNaN(betInput) ? betInput : 0})">
-                                \ud83d\udcc8 Raise +${!isNaN(betInput) && betInput > 0 ? betInput : '?'} נק'
+                                <i class="uil uil-statistics"></i> Raise +${!isNaN(betInput) && betInput > 0 ? betInput : '?'} נק'
                             </button>
                         </div>` : ''}
                         <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
-                            <button class="neo-button" style="background:#555; color:white;" onclick="submitBettingAction('fold', 0)">\u274c Fold – התקפל</button>
+                            <button class="neo-button" style="background:transparent; color:var(--app-text);" onclick="submitBettingAction('fold', 0)">\u274c Fold – התקפל</button>
                         </div>
                     </div>`}
                 </div>`;
@@ -789,7 +789,7 @@ function renderBetBurn() {
                 ${playerStatusBar}
                 <div style="margin-top:20px; display:flex; flex-direction:column; align-items:center;">
                     <h2 style="font-size: 22px; text-align:center; margin-bottom: 20px;">${qText}</h2>
-                    <div style="background:var(--wrong-color); color:white; padding:20px; border-radius:16px; text-align:center; max-width:300px;">
+                    <div style="background:transparent; border:2px solid var(--wrong-color); color:var(--app-text); padding:20px; border-radius:16px; text-align:center; max-width:300px;">
                         <i class="uil uil-times-circle" style="font-size:48px;"></i>
                         <h3 style="margin-top:10px;">תשובה שגויה!</h3>
                         <p style="opacity:0.9;">ממתין לסיום הסיבוב...</p>
@@ -805,7 +805,7 @@ function renderBetBurn() {
                 ${headerBar}
                 ${playerStatusBar}
                 <div style="width:100%; display: flex; flex-direction: column; flex: 1;">
-                    <div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div>
+                    <div class="timer" style="font-size:32px; font-weight:bold; color:var(--app-text); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div>
                     <div class="spacer-sm"></div>
                     <div class="question-layout-container ${q.mediaUrl ? 'has-image' : ''}" style="margin-top:10px; flex: 1;">
                         <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
@@ -828,7 +828,7 @@ function renderBetBurn() {
     return `
         <div class="screen-wrapper">
             <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
-            <div style="flex:1; display:flex; flex-direction:column; align-items:flex-start; padding:8px; position:relative; width:100%; box-sizing:border-box; overflow-y:auto;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px; position:relative; width:100%; box-sizing:border-box; overflow-y:auto;">
                 ${content}
             </div>
         </div>`;
@@ -1077,7 +1077,7 @@ function renderClimb() {
             ${buildMountainSVG(state.rank, state.rank, '', oppRank, oppRank, '', state.isMultiplayer, state.isHost)}
 
             <div class="spacer-md"></div>
-            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--app-text); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <div class="${panelAnimClass} question-layout-container ${q.mediaUrl ? 'has-image' : ''}">
                 <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
                 ${q.mediaUrl ? `
@@ -1207,7 +1207,7 @@ function renderMatchPairs() {
         if (state.matchErrorLeft === i) cls += ' error';
         const content = item.img
             ? `<img class="match-item-img" src="${item.img}" alt="" />`
-            : (item.text || '');
+            : (item.text ? (item.text.length > 35 ? item.text.substring(0, 35) + '...' : item.text) : '');
         return `<div class="${cls}" id="match-left-${i}" 
                 onclick="${item.matched ? '' : `selectMatch('left', ${i})`}">${content}</div>`;
     }).join('');
@@ -1219,7 +1219,7 @@ function renderMatchPairs() {
         if (state.matchErrorRight === i) cls += ' error';
         const content = item.img
             ? `<img class="match-item-img" src="${item.img}" alt="" />`
-            : (item.text || '');
+            : (item.text ? (item.text.length > 35 ? item.text.substring(0, 35) + '...' : item.text) : '');
         return `<div class="${cls}" id="match-right-${i}" 
                 onclick="${item.matched ? '' : `selectMatch('right', ${i})`}">${content}</div>`;
     }).join('');
@@ -1229,7 +1229,7 @@ function renderMatchPairs() {
     return `
         <div class="screen-wrapper">
             <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
-            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
+            ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--app-text); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <h2 style="font-size: 20px; text-align: center;">התאם את הזוגות (נקודות: ${state.score} / 25)</h2>
             
             <div class="match-container" id="match-container">
@@ -1598,8 +1598,9 @@ function buildPairRowHtml(idx) {
     <div class="pair-row" style="display:flex; gap:8px; margin-bottom:12px; align-items:flex-start;">
         <!-- LEFT SIDE -->
         <div style="flex:1; display:flex; flex-direction:column;">
-            <div id="pair-text-area-left-${idx}">
-                <input type="text" class="neo-input match-left" placeholder="צד ימין" style="margin-bottom:0;">
+            <div id="pair-text-area-left-${idx}" style="position: relative;">
+                <input type="text" class="neo-input match-left" placeholder="צד ימין" style="margin-bottom:0; padding-left: 50px;" maxlength="35" oninput="this.nextElementSibling.innerText = this.value.length + '/35'">
+                <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: 0.6; pointer-events: none;" dir="ltr">0/35</span>
             </div>
             <div id="pair-img-area-left-${idx}" style="display:none;">
                 <input type="hidden" class="match-left-img" id="pair-img-data-left-${idx}">
@@ -1613,8 +1614,9 @@ function buildPairRowHtml(idx) {
         </div>
         <!-- RIGHT SIDE -->
         <div style="flex:1; display:flex; flex-direction:column;">
-            <div id="pair-text-area-right-${idx}">
-                <input type="text" class="neo-input match-right" placeholder="צד שמאל" style="margin-bottom:0;">
+            <div id="pair-text-area-right-${idx}" style="position: relative;">
+                <input type="text" class="neo-input match-right" placeholder="צד שמאל" style="margin-bottom:0; padding-left: 50px;" maxlength="35" oninput="this.nextElementSibling.innerText = this.value.length + '/35'">
+                <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: 0.6; pointer-events: none;" dir="ltr">0/35</span>
             </div>
             <div id="pair-img-area-right-${idx}" style="display:none;">
                 <input type="hidden" class="match-right-img" id="pair-img-data-right-${idx}">
@@ -2757,7 +2759,10 @@ function listenToRoom(code) {
                     }
                 }
 
-                if (data.currentQuestionIndex > state.currentIndex) {
+                // Only advance the question index when NOT in the ANSWERING phase.
+                // During ANSWERING, the current question must stay fixed so both players
+                // see the same question. The index advances once ANTE begins for the next round.
+                if (data.currentQuestionIndex > state.currentIndex && state.roomPhase !== 'ANSWERING') {
                     state.currentIndex = data.currentQuestionIndex;
                     state.selectedOption = null;
                     state.playerFolded = false;
