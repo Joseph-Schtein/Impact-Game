@@ -1195,6 +1195,8 @@ function renderMatchPairs() {
     }
 
     const pool = state.currentMatchPool;
+    const contextMap = q.contextMap || {};
+    const contextText = contextMap[state.currentLang.code] || contextMap["en"] || '';
 
     if (state.isMultiplayer && !state.timerInterval) {
         startQuestionTimer();
@@ -1231,6 +1233,7 @@ function renderMatchPairs() {
             <button class="top-back-btn" onclick="navigate('MENU')"><i class="uil uil-times"></i></button>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--app-text); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
             <h2 style="font-size: 20px; text-align: center;">התאם את הזוגות (נקודות: ${state.score} / 25)</h2>
+            ${contextText ? `<div style="text-align:center; font-size:18px; font-weight:bold; color:var(--deep-indigo); margin-bottom:16px;">${contextText}</div>` : ''}
             
             <div class="match-container" id="match-container">
                 <svg class="match-svg-overlay" id="match-svg"></svg>
@@ -1662,7 +1665,7 @@ function renderAddQuestion() {
                 ">
                     <option value="trivia">שאלת טריוויה (4 אפשרויות)</option>
                     <option value="match_pair">התאמת זוגות (5-10 זוגות)</option>
-                    <option value="hangman">משחק הגמן (מילה או ביטוי)</option>
+                    <option value="hangman">משחק איש תלוי (מילה או ביטוי)</option>
                 </select>
 
                 <!-- ══ TRIVIA FIELDS ══ -->
@@ -1693,6 +1696,9 @@ function renderAddQuestion() {
 
                 <!-- ══ MATCH PAIR FIELDS ══ -->
                 <div id="matchFields" style="display: none;">
+                    <label class="bold">הקשר/הסבר על הזוגות (חובה)</label>
+                    <input type="text" id="matchPairContext" class="neo-input" placeholder="לדוגמא, התאם בין המדינה לעיר הבירה שלה" style="margin-bottom: 16px;">
+                    
                     <label class="bold">זוגות להתאמה (מינימום 5)</label>
                     <p style="font-size:13px; opacity:0.7; margin-bottom:10px;">בחר האם הצדדים הם טקסט או תמונה עבור כל השאלה:</p>
                     
@@ -1721,9 +1727,12 @@ function renderAddQuestion() {
 
                 <!-- ══ HANGMAN FIELDS ══ -->
                 <div id="hangmanFields" style="display: none;">
-                    <label class="bold">מילה או ביטוי להגמן (עד 20 תווים)</label>
+                    <label class="bold">מילה או ביטוי לאיש תלוי (עד 20 תווים)</label>
                     <input type="text" id="newHangmanWord" class="neo-input" placeholder="לדוגמא, ONE PIECE או וואן פיס" style="text-transform: uppercase;" maxlength="20">
                     
+                    <label class="bold">רמז / מידע על המילה (חובה)</label>
+                    <input type="text" id="hangmanHint" class="neo-input" placeholder="לדוגמא, דמות ראשית בסדרה נארוטו" style="margin-bottom: 16px;">
+
                     <label class="bold">תמונת רמז (לא חובה)</label>
                     <input type="hidden" id="hangmanImgData">
                     <label class="img-file-label">
@@ -1835,6 +1844,13 @@ async function saveNewQuestion() {
                 return;
             }
 
+            const hintText = document.getElementById('hangmanHint').value.trim();
+            if (!hintText) {
+                showToast("יש להזין רמז/מידע על המילה!", 'error');
+                btn.innerText = "שמור שאלה"; btn.disabled = false;
+                return;
+            }
+
             if (needsAI) {
                 btn.innerText = "בודק תוכן בענן...";
                 const hangmanImgUrlForCheck = getImageValue('hangmanImgData');
@@ -1852,6 +1868,7 @@ async function saveNewQuestion() {
             const hangmanImgUrl = getImageValue('hangmanImgData');
             const docData = {
                 word: word,
+                hint: hintText,
                 category: category,
                 lang: state.currentLang.code,
                 addedAt: window.serverTimestamp()
@@ -1862,12 +1879,19 @@ async function saveNewQuestion() {
                 showToast("✅ נשלח לאישור מנהל!", 'success', 3500);
             } else {
                 await window.addDoc(window.collection(window.db, "hangmanWords"), docData);
-                showToast("✅ מילת ההגמן נשמרה בהצלחה!", 'success', 3500);
+                showToast("✅ מילת האיש התלוי נשמרה בהצלחה!", 'success', 3500);
             }
             navigate('MENU');
             return;
 
         } else if (qType === 'match_pair') {
+            const contextText = document.getElementById('matchPairContext').value.trim();
+            if (!contextText) {
+                showToast("יש להזין הקשר/הסבר על הזוגות!", 'error');
+                btn.innerText = "שמור שאלה"; btn.disabled = false;
+                return;
+            }
+
             // Collect pairs: each row has either text or image per side
             const rows = document.querySelectorAll('.pair-row');
             const rawPairs = [];
@@ -1936,6 +1960,9 @@ async function saveNewQuestion() {
             });
 
             newQuestion.pairsMap = pairsMap;
+
+            const tContext = await translateToAllLangs(contextText, src);
+            newQuestion.contextMap = tContext;
         }
 
         // Save to Firebase Firestore
@@ -2505,7 +2532,7 @@ window.createMultiplayerRoom = async () => {
 
     // Shuffle questions - pull 10 random questions from the entire bank (not used for HANGMAN)
     if (state.selectedMode === 'HANGMAN' && state.hangmanWordBank.length === 0) {
-        showToast("אין מילים להגמן! הוסף מילים תחילה.", 'error', 4000);
+        showToast("אין מילים לאיש תלוי! הוסף מילים תחילה.", 'error', 4000);
         return;
     }
     let playlist = [...state.questionBank];
@@ -3538,6 +3565,7 @@ function renderHangman() {
             </div>
 
             ${state.hangmanWordImage ? `<img class="hangman-hint-image" src="${state.hangmanWordImage}" alt="רמז" />` : ''}
+            ${state.hangmanWordHint ? `<div class="hangman-hint-text" style="text-align:center; font-weight:bold; margin-bottom:12px; color:var(--app-text); font-size:18px;">${state.hangmanWordHint}</div>` : ''}
 
             <div class="hangman-word">${wordDisplay}</div>
 
@@ -3564,6 +3592,7 @@ function renderHangmanMultiplayer(myWordDisplay, myWrongCount) {
             <div class="hangman-panel-title">אתה ${state.hangmanDone ? (state.hangmanWon ? '✅' : '❌') : '<i class="uit uit-hourglass"></i>'}</div>
             ${buildHangmanSVG(myWrongCount, true)}
             ${state.hangmanWordImage ? `<img class="hangman-hint-image small" src="${state.hangmanWordImage}" alt="רמז" />` : ''}
+            ${state.hangmanWordHint ? `<div class="hangman-hint-text small" style="text-align:center; font-weight:bold; margin-bottom:8px; color:var(--app-text); font-size:14px;">${state.hangmanWordHint}</div>` : ''}
             <div class="hangman-word small">${myWordDisplay}</div>
             ${state.hangmanWrong.length > 0 ? `
             <div class="hangman-wrong-list small">
@@ -3665,7 +3694,7 @@ function renderHangmanResults() {
 function renderAddHangmanWord() {
     return `
         <div class="screen-wrapper" style="align-items:center; padding-bottom:40px;">
-            <h2 class="main-title" style="margin-top:0; font-size:32px;">🎯 מילות הגמן</h2>
+            <h2 class="main-title" style="margin-top:0; font-size:32px;">🎯 מילות איש תלוי</h2>
 
             <div style="width:100%; max-width:420px;">
                 <label class="bold" style="display:block; margin-bottom:8px; font-size:16px;">הוסף מילה חדשה</label>
@@ -3731,7 +3760,7 @@ window.saveHangmanWord = async () => {
 function startHangmanSingle() {
     const wordList = state.hangmanWordBank || [];
     if (wordList.length === 0) {
-        showToast('אין מילים להגמן! הוסף מילים תחילה.', 'error', 4000);
+        showToast('אין מילים לאיש תלוי! הוסף מילים תחילה.', 'error', 4000);
         navigate('ADD_HANGMAN_WORD');
         return;
     }
@@ -3744,6 +3773,7 @@ function initHangmanState(wordList) {
     const word = (entry.word || '').toUpperCase();
     state.hangmanWord = word.split('');
     state.hangmanWordImage = entry.imageUrl || null; // carry hint image
+    state.hangmanWordHint = entry.hint || null;
     state.hangmanGuessed = [];
     state.hangmanWrong = [];
     state.hangmanDone = false;
