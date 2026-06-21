@@ -45,6 +45,8 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* Use geometric precision for crisp text at all sizes */
+    text-rendering: geometricPrecision;
 }
 
 input,
@@ -63,6 +65,9 @@ div,
 label,
 input {
     color: var(--app-text);
+    /* Ensure font smoothing is inherited on all text nodes */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 #app-container {
@@ -159,6 +164,10 @@ h2 {
     /* Raised 3D look at rest */
     box-shadow: 0 5px 0 rgba(33, 2, 110, 0.35), 0 6px 8px rgba(33, 2, 110, 0.15);
     transform: translateY(0px);
+    /* Isolate GPU layer to THIS element only — prevents parent text from blurring */
+    will-change: transform;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .neo-button:hover {
@@ -917,6 +926,8 @@ h2 {
     z-index: 200;
     backdrop-filter: blur(5px);
     animation: overlayIn 0.35s ease;
+    /* Isolate the backdrop-filter to prevent it from blurring sibling text */
+    isolation: isolate;
 }
 
 @keyframes overlayIn {
@@ -1240,6 +1251,7 @@ h2 {
     flex-direction: column;
     width: 100%;
     position: relative;
+    gap: 15px;
 }
 
 .question-layout-image {
@@ -1258,44 +1270,54 @@ h2 {
 
 @media (min-width: 768px) {
     #app-container {
-        max-width: 950px;
+        max-width: 1000px;
     }
-    
+
     .question-layout-container {
-        display: block;
-        min-height: 280px; /* Ensure container has enough height for the absolute image */
+        display: flex;
+        flex-direction: column;
+        min-height: auto;
+    }
+
+    .question-layout-container.has-image {
+        flex-direction: row-reverse;
+        align-items: center;
+        justify-content: space-between;
+        gap: 40px;
     }
 
     .question-layout-image {
-        position: absolute;
-        right: 0;
-        top: 0;
-        width: 250px;
-        height: 100%;
-        display: flex;
-        justify-content: flex-end;
-        align-items: flex-start;
         margin-bottom: 0;
-        z-index: 1;
-        pointer-events: none; /* Allows clicking through empty space around image */
-    }
-    
-    .question-layout-image .trivia-question-image {
-        pointer-events: auto; /* Restores clicking on the image if needed */
     }
 
-    .question-layout-content {
-        width: 100%;
-        max-width: 400px;
-        margin: 0 auto;
-        position: relative;
-        z-index: 2;
+    .question-layout-container.has-image .question-layout-image {
+        width: 55%;
+        margin-bottom: 0;
+        position: static;
+        height: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
-    .trivia-question-image {
-        max-height: 280px;
-        max-width: 100%;
+    .question-layout-container.has-image .question-layout-content {
+        width: 45%;
         margin: 0;
+        max-width: none;
+    }
+
+    .question-layout-container.has-image .trivia-question-image {
+        max-height: 400px;
+        width: 100%;
+        max-width: none;
+        object-fit: cover;
+        border-radius: 8px;
+        margin: 0;
+    }
+
+    .question-layout-container.has-image .question-text {
+        text-align: right !important;
+        align-self: flex-start;
     }
 }
 

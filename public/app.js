@@ -64,7 +64,7 @@ const state = {
     maxPlayers: 2,
     multiplayerStatus: null,
     isMultiplayer: false,
-    
+
     // Multiplayer Bet Data
     roomPot: 0,
     roomPhase: 'ANTE', // 'ANTE', 'BETTING', 'ANSWERING'
@@ -549,19 +549,19 @@ function renderClassic() {
             <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <div class="question-layout-container">
+            <div class="question-layout-container ${q.mediaUrl ? 'has-image' : ''}">
                 ${q.mediaUrl ? `
                 <div class="question-layout-image">
                     <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
                 </div>` : ''}
                 <div class="question-layout-content">
-                    <h2 style="font-size: 20px;">${qText}</h2>
+                    <h2 class="question-text" style="font-size: 24px; text-align: center; margin-bottom: 20px;">${qText}</h2>
                     ${generateOptionsHTML(opts)}
+                    <div style="margin-top:30px; width:100%;">
+                        <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
+                                onclick="checkAnswer()">${getString('check_btn')}</button>
+                    </div>
                 </div>
-            </div>
-            <div style="margin-top:auto; width:100%;">
-                <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
-                        onclick="checkAnswer()">${getString('check_btn')}</button>
             </div>
         </div>`;
 }
@@ -647,19 +647,22 @@ function renderBetBurn() {
 
             content = `
                 ${potDisplay}
-                <div style="margin-top:30px; width:100%;">
+                <div style="margin-top:30px; width:100%; display: flex; flex-direction: column; flex: 1;">
                     <div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div>
                     <div class="spacer-sm"></div>
-                    <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
-                    ${q.mediaUrl ? `<img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />` : ''}
-                    <div class="question-layout-container" style="margin-top:10px;">
+                    <div class="question-layout-container ${q.mediaUrl ? 'has-image' : ''}" style="margin-top:10px; flex: 1;">
+                        ${q.mediaUrl ? `
+                        <div class="question-layout-image">
+                            <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
+                        </div>` : ''}
                         <div class="question-layout-content">
+                            <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
                             ${generateOptionsHTML(opts)}
+                            <div style="margin-top:30px; width: 100%;">
+                                <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
+                                        onclick="checkBetAnswerMultiplayer()">${getString('check_btn')}</button>
+                            </div>
                         </div>
-                    </div>
-                    <div style="margin-top:20px; width: 100%;">
-                        <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''} 
-                                onclick="checkBetAnswerMultiplayer()">${getString('check_btn')}</button>
                     </div>
                 </div>`;
         }
@@ -918,20 +921,19 @@ function renderClimb() {
 
             <div class="spacer-md"></div>
             ${state.isMultiplayer ? `<div class="timer" style="font-size:32px; font-weight:bold; color:var(--vibrant-coral); text-align:center;"><i class="uit uit-hourglass"></i> ${state.questionTimer}s</div><div class="spacer-md"></div>` : ''}
-            <div class="${panelAnimClass} question-layout-container">
+            <div class="${panelAnimClass} question-layout-container ${q.mediaUrl ? 'has-image' : ''}">
                 ${q.mediaUrl ? `
                 <div class="question-layout-image">
                     <img class="trivia-question-image" src="${q.mediaUrl}" alt="תמונת שאלה" />
                 </div>` : ''}
                 <div class="question-layout-content">
-                    <h2 style="font-size: 20px; text-align:center;">${qText}</h2>
+                    <h2 class="question-text" style="font-size: 24px; text-align:center; margin-bottom: 20px;">${qText}</h2>
                     ${generateOptionsHTML(opts)}
+                    <div style="margin-top:30px; width:100%;">
+                        <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''}
+                                onclick="checkClimbAnswer()">${getString('check_btn')}</button>
+                    </div>
                 </div>
-            </div>
-
-            <div style="margin-top:auto; width:100%;">
-                <button class="neo-button bg-coral" ${!state.selectedOption || state.isAnimatingResult ? 'disabled' : ''}
-                        onclick="checkClimbAnswer()">${getString('check_btn')}</button>
             </div>
         </div>`;
 }
@@ -2170,15 +2172,15 @@ window.submitAnte = async (accepted) => {
         state.energy -= 50;
         localStorage.setItem('otakuBetBurnEnergy', state.energy);
     }
-    
+
     try {
         state.isWaitingForOthers = true;
         render();
         await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-            [`answers.${state.myPlayerName}`]: { 
-                action: 'ante', 
-                accepted: accepted, 
-                amount: accepted ? 50 : 0 
+            [`answers.${state.myPlayerName}`]: {
+                action: 'ante',
+                accepted: accepted,
+                amount: accepted ? 50 : 0
             }
         });
     } catch (e) { console.error("Error submitting ante:", e); }
@@ -2187,17 +2189,17 @@ window.submitAnte = async (accepted) => {
 window.lockInBetMultiplayer = async () => {
     const bet = parseInt(state.userBetInput);
     if (isNaN(bet) || bet < 0 || bet > state.energy) return;
-    
+
     state.energy -= bet;
     localStorage.setItem('otakuBetBurnEnergy', state.energy);
-    
+
     try {
         state.isWaitingForOthers = true;
         render();
         await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-            [`answers.${state.myPlayerName}`]: { 
-                action: 'bet', 
-                amount: bet 
+            [`answers.${state.myPlayerName}`]: {
+                action: 'bet',
+                amount: bet
             }
         });
     } catch (e) { console.error("Error submitting bet:", e); }
@@ -2218,7 +2220,7 @@ window.checkBetAnswerMultiplayer = async () => {
 
     setTimeout(async () => {
         state.isAnimatingResult = false;
-        
+
         if (!isCorrect) {
             state.isLockedOut = true;
             render();
@@ -2226,17 +2228,17 @@ window.checkBetAnswerMultiplayer = async () => {
             state.isWaitingForOthers = true;
             render();
         }
-        
+
         try {
             await window.updateDoc(window.doc(window.db, "rooms", state.roomId), {
-                [`answers.${state.myPlayerName}`]: { 
+                [`answers.${state.myPlayerName}`]: {
                     action: 'answer',
-                    isCorrect: isCorrect, 
-                    time: Date.now() 
+                    isCorrect: isCorrect,
+                    time: Date.now()
                 }
             });
         } catch (e) { console.error("Error submitting answer:", e); }
-        
+
     }, 1200);
 };
 
@@ -2538,7 +2540,7 @@ function listenToRoom(code) {
                     state.isWaitingForOthers = false;
                     state.roomPhase = data.roomPhase || 'ANTE';
                     state.roomPot = data.roomPot || 0;
-                    
+
                     if (data.currentQuestionIndex > state.currentIndex) {
                         state.currentIndex = data.currentQuestionIndex;
                         state.selectedOption = null;
@@ -2546,14 +2548,14 @@ function listenToRoom(code) {
                         state.isLockedOut = false;
                         state.userBetInput = '';
                     }
-                    
+
                     if (state.roomPhase === 'ANSWERING') {
                         if (state.timerInterval) clearQuestionTimer();
                         startQuestionTimer();
                     } else if (state.roomPhase === 'BETTING') {
                         // Betting phase just started
                     }
-                    
+
                     render();
                 } else if (data.roomPot !== state.roomPot) {
                     state.roomPot = data.roomPot || 0;
@@ -2590,12 +2592,12 @@ function listenToRoom(code) {
                 const answers = data.answers || {};
                 const activePlayers = Object.entries(data.players).filter(([_, p]) => !p.finished);
                 const activePlayerNames = activePlayers.map(([name, _]) => name);
-                
+
                 let updates = {};
 
                 if (state.selectedMode === 'BET_BURN') {
                     const currentPhase = data.roomPhase || 'ANTE';
-                    
+
                     if (currentPhase === 'ANTE') {
                         const anteCount = activePlayerNames.filter(name => answers[name] && answers[name].action === 'ante').length;
                         if (anteCount === activePlayerNames.length && activePlayerNames.length > 0) {
@@ -2610,12 +2612,12 @@ function listenToRoom(code) {
                                     }
                                 }
                             });
-                            
+
                             updates['roomPot'] = pot;
                             updates['roomPhase'] = 'BETTING';
                             updates['foldedPlayers'] = folded;
                             updates['answers'] = {};
-                            
+
                             if (folded.length === activePlayerNames.length) {
                                 updates['roomPhase'] = 'ANTE';
                                 updates['currentQuestionIndex'] = data.currentQuestionIndex + 1;
@@ -2646,11 +2648,11 @@ function listenToRoom(code) {
                     } else if (currentPhase === 'ANSWERING') {
                         const folded = data.foldedPlayers || [];
                         const answeringPlayers = activePlayerNames.filter(name => !folded.includes(name));
-                        
+
                         let winner = null;
                         let earliest = Infinity;
                         let wrongCount = 0;
-                        
+
                         Object.entries(answers).forEach(([name, ans]) => {
                             if (ans.action === 'answer') {
                                 if (ans.isCorrect && ans.time < earliest) {
@@ -2661,7 +2663,7 @@ function listenToRoom(code) {
                                 }
                             }
                         });
-                        
+
                         if (winner) {
                             const currentScore = data.players[winner].score || 0;
                             updates[`players.${winner}.score`] = currentScore + (data.roomPot || 0);
@@ -2669,13 +2671,13 @@ function listenToRoom(code) {
                             updates['roomPhase'] = 'ANTE';
                             updates['foldedPlayers'] = [];
                             updates['answers'] = {};
-                            
+
                             if (data.currentQuestionIndex >= data.playlist.length - 1) {
                                 Object.keys(data.players).forEach(p => updates[`players.${p}.finished`] = true);
                             } else {
                                 updates['currentQuestionIndex'] = data.currentQuestionIndex + 1;
                             }
-                            
+
                             // Check for eliminated players
                             Object.entries(data.players).forEach(([pName, pData]) => {
                                 const finalScore = (pName === winner) ? updates[`players.${pName}.score`] : pData.score;
@@ -2683,25 +2685,25 @@ function listenToRoom(code) {
                                     updates[`players.${pName}.finished`] = true;
                                 }
                             });
-                            
+
                             window.updateDoc(window.doc(window.db, "rooms", code), updates);
                         } else if (wrongCount === answeringPlayers.length && answeringPlayers.length > 0) {
                             updates['roomPot'] = 0; // Burn the pot
                             updates['roomPhase'] = 'ANTE';
                             updates['foldedPlayers'] = [];
                             updates['answers'] = {};
-                            
+
                             if (data.currentQuestionIndex >= data.playlist.length - 1) {
                                 Object.keys(data.players).forEach(p => updates[`players.${p}.finished`] = true);
                             } else {
                                 updates['currentQuestionIndex'] = data.currentQuestionIndex + 1;
                             }
-                            
+
                             // Check for eliminated players
                             Object.entries(data.players).forEach(([pName, pData]) => {
                                 if (pData.score <= 0) updates[`players.${pName}.finished`] = true;
                             });
-                            
+
                             window.updateDoc(window.doc(window.db, "rooms", code), updates);
                         }
                     }
@@ -3471,12 +3473,14 @@ function renderAdminLogin() {
     return `
         <div class="screen-wrapper" style="align-items:center; justify-content:center;">
             <h1 class="main-title">כניסת מנהל</h1>
-            <div style="background: var(--white); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%; border: 3px solid var(--app-text); margin-bottom: 20px;">
-                <label class="bold color-indigo">סיסמה:</label>
-                <input type="password" id="adminPasswordInput" class="neo-input" placeholder="הכנס סיסמה...">
-                <button class="neo-button bg-indigo" style="margin-top: 15px;" onclick="verifyAdminLogin()">כניסה</button>
+            <div class="button-group" style="display:flex; flex-direction:column; align-items:center; width: 100%;">
+                <div style="background: var(--white); padding: 20px; border-radius: 12px; max-width: 400px; width: 100%; border: 3px solid var(--app-text); margin-bottom: 20px;">
+                    <label class="bold color-indigo">סיסמה:</label>
+                    <input type="password" id="adminPasswordInput" class="neo-input" placeholder="הכנס סיסמה...">
+                    <button class="neo-button bg-indigo" style="margin-top: 15px;" onclick="verifyAdminLogin()">כניסה</button>
+                </div>
+                <button class="neo-button bg-coral" style="max-width: 150px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
-            <button class="neo-button bg-coral" style="max-width: 150px;" onclick="navigate('MENU')">${getString('back')}</button>
         </div>
     `;
 }
@@ -3518,28 +3522,28 @@ function renderAdminPanel() {
     const m = state.verificationMode || "AI_ONLY";
 
     let html = `
-        <div class="screen-wrapper" style="align-items: flex-start; overflow-y: auto; display: block; padding-top: 20px;">
-            <h1 class="main-title" style="text-align:center;">לוח בקרה - מנהל</h1>
-            
-            <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin: 0 auto 20px; border: 3px solid var(--app-text);">
-                <h3 class="color-indigo">הגדרות אימות שאלות</h3>
-                <p style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">בחר כיצד שאלות שנשלחו על ידי משתמשים יאומתו.</p>
+        <div class="screen-wrapper" style="align-items:center; justify-content:center; overflow-y: auto; padding-top: 20px;">
+            <h1 class="main-title">לוח בקרה - מנהל</h1>
+            <div class="button-group" style="display:flex; flex-direction:column; align-items:center; width: 100%;">
                 
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <label><input type="radio" name="vMode" value="AI_ONLY" ${m === 'AI_ONLY' ? 'checked' : ''}> אימות בינה מלאכותית בלבד</label>
-                    <label><input type="radio" name="vMode" value="MANUAL_ONLY" ${m === 'MANUAL_ONLY' ? 'checked' : ''}> אימות ידני בלבד</label>
-                    <label><input type="radio" name="vMode" value="BOTH" ${m === 'BOTH' ? 'checked' : ''}> שניהם (בינה מלאכותית + ידני)</label>
-                    <label><input type="radio" name="vMode" value="NONE" ${m === 'NONE' ? 'checked' : ''}> ללא אימות (אישור אוטומטי)</label>
+                <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin-bottom: 20px; border: 3px solid var(--app-text);">
+                    <h3 class="color-indigo">הגדרות אימות שאלות</h3>
+                    <p style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">בחר כיצד שאלות שנשלחו על ידי משתמשים יאומתו.</p>
+                    
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <label><input type="radio" name="vMode" value="AI_ONLY" ${m === 'AI_ONLY' ? 'checked' : ''}> אימות בינה מלאכותית בלבד</label>
+                        <label><input type="radio" name="vMode" value="MANUAL_ONLY" ${m === 'MANUAL_ONLY' ? 'checked' : ''}> אימות ידני בלבד</label>
+                        <label><input type="radio" name="vMode" value="BOTH" ${m === 'BOTH' ? 'checked' : ''}> שניהם (בינה מלאכותית + ידני)</label>
+                        <label><input type="radio" name="vMode" value="NONE" ${m === 'NONE' ? 'checked' : ''}> ללא אימות (אישור אוטומטי)</label>
+                    </div>
+                    <button class="neo-button bg-indigo" style="margin-top: 15px; max-width: 200px; padding: 10px;" onclick="saveAdminSettings()">שמור הגדרות</button>
                 </div>
-                <button class="neo-button bg-indigo" style="margin-top: 15px; max-width: 200px; padding: 10px;" onclick="saveAdminSettings()">שמור הגדרות</button>
-            </div>
-            
-            <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin: 0 auto 20px; border: 3px solid var(--app-text);">
-                <h3 class="color-indigo">ממתינות לאישור</h3>
-                <div id="pendingQuestionsContainer">טוען...</div>
-            </div>
-            
-            <div style="text-align:center; padding-bottom: 40px;">
+                
+                <div style="background: var(--white); padding: 20px; border-radius: 12px; width: 100%; max-width: 600px; margin-bottom: 20px; border: 3px solid var(--app-text);">
+                    <h3 class="color-indigo">ממתינות לאישור</h3>
+                    <div id="pendingQuestionsContainer">טוען...</div>
+                </div>
+                
                 <button class="neo-button bg-coral" style="max-width: 150px;" onclick="navigate('MENU')">${getString('back')}</button>
             </div>
         </div>

@@ -3,13 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, shrink-to-fit=no">
     <title>Otaku Trivia</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew:wght@400;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="styles.css?v=6">
     <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.2.0/css/line.css" />
     <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.2.0/css/thinline.css" />
 
@@ -32,7 +32,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=11"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
@@ -70,7 +70,7 @@
         window.updateDoc = updateDoc;
         window.getDoc = getDoc;
         window.deleteDoc = deleteDoc;
-        
+
         const functions = getFunctions(app, "us-central1");
         window.functions = functions;
         window.httpsCallable = httpsCallable;
